@@ -1,6 +1,8 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
+data_of_argo/
+data_for_simulator/
 *$py.class
 
 # C extensions
