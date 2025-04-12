@@ -9,6 +9,7 @@ dependencies:
   - matplotlib-base
   - maturin
   - nox
+  - gym==0.17.2
   - numba
   - numpy
   - openblas
