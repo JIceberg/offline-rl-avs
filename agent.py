@@ -55,11 +55,11 @@ class CQLAgent:
     def __init__(self,
                  state_dim,
                  action_dim,
-                 lr=3e-4,
+                 lr=1e-4,
                  gamma=0.99,
                  tau=0.005,
                  alpha=0.2,
-                 cql_weight=5.0,
+                 cql_weight=1.0,
                  num_random_actions=10):
 
         # Detect GPU

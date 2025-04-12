@@ -15,6 +15,7 @@ offline_data = {
 }
 
 env = OfflineRL()
+env.reset()
 
 # Assuming ReplayBuffer is already defined and initialized
 replay_buffer = ReplayBuffer()
@@ -30,7 +31,7 @@ for obs, next_obs, action, reward, terminal in zip(
 
 NUM_EPISODES = 100
 NUM_STEPS = 15000
-NUM_TRAJS = 5
+NUM_TRAJS = 10
 BATCH_SIZE = 64
 
 agent = CQLAgent(
@@ -48,7 +49,7 @@ for episode in range(NUM_EPISODES):
         # Update the agent
         agent.update(states, actions, rewards, next_states, dones)
 
-        print(f"Episode: {episode}/{NUM_EPISODES}, Step: {step}/{NUM_STEPS}, Q Loss: {agent.q_loss}, Policy Loss: {agent.policy_loss}")
+        print(f"Episode: {episode+1}/{NUM_EPISODES}, Step: {step+1}/{NUM_STEPS}, Q Loss: {agent.q_loss:.4f}, Policy Loss: {agent.policy_loss:.4f}")
 
     # eval
     traj_reward = []
@@ -71,4 +72,4 @@ for episode in range(NUM_EPISODES):
                 break
     avg_reward = sum(traj_reward) / len(traj_reward)
     
-    print(f"Episode: {episode}/{NUM_EPISODES}, Reward: {avg_reward}")
+    print(f"Episode: {episode+1}/{NUM_EPISODES}, Reward: {avg_reward:.4f}")

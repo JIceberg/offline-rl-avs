@@ -12,20 +12,20 @@ scenarios = []
 for scenario_file_list in scenario_file_lists:
     scenario = pickle.load(open(scenario_file_list, 'rb'))
     scenarios.append(scenario)
-print(len(scenarios))
 
 observations = []
 next_observations = []
 actions = []
 rewards = []
 terminals = []
-ego_v_state = []
 
 for scenario in scenarios:
     states_of_scenario = scenario['states']
     for i in range(len(states_of_scenario)):
         state = states_of_scenario[i]
-        action = 0.0
+        action = [0, 0]
+        done = 0
+        reach = 0
 
         ego = state[0]
         object_front = state[1]
@@ -34,40 +34,40 @@ for scenario in scenarios:
         object_right_front = state[4]
         object_left_behind = state[5]
         object_right_behind = state[6]
-        done = 0
-        reach = 0
 
-        ego_v = math.sqrt(state[0][3] ** 2 + state[0][4] ** 2)
-        object_front_v = math.sqrt(state[1][5] ** 2 + state[1][6] ** 2)
-        object_behind_v = math.sqrt(state[2][5] ** 2 + state[2][6] ** 2)
-        object_left_front_v = math.sqrt(state[3][5] ** 2 + state[3][6] ** 2)
-        object_right_front_v = math.sqrt(state[4][5] ** 2 + state[4][6] ** 2)
-        object_left_behind_v = math.sqrt(state[5][5] ** 2 + state[5][6] ** 2)
-        object_right_behind_v = math.sqrt(state[6][5] ** 2 + state[6][6] ** 2)
-        if abs(state[1][0]) > 100:
-            state[1][0] = 0
-        if abs(state[2][0]) > 100:
-            state[2][0] = 0
-        if abs(state[3][0]) > 100:
-            state[3][0] = 0
-        if abs(state[4][0]) > 100:
-            state[4][0] = 0
-        if abs(state[5][0]) > 100:
-            state[5][0] = 0
-        if abs(state[6][0]) > 100:
-            state[6][0] = 0
-        if abs(state[1][1]) > 100:
-            state[1][1] = 0
-        if abs(state[2][1]) > 100:
-            state[2][1] = 0
-        if abs(state[3][1]) > 100:
-            state[3][1] = 0
-        if abs(state[4][1]) > 100:
-            state[4][1] = 0
-        if abs(state[5][1]) > 100:
-            state[5][1] = 0
-        if abs(state[6][1]) > 100:
-            state[6][1] = 0
+        ego_v = math.sqrt(ego[3] ** 2 + ego[4] ** 2)
+        object_front_v = math.sqrt(object_front[5] ** 2 + object_front[6] ** 2)
+        object_behind_v = math.sqrt(object_behind[5] ** 2 + object_behind[6] ** 2)
+        object_left_front_v = math.sqrt(object_left_front[5] ** 2 + object_left_front[6] ** 2)
+        object_right_front_v = math.sqrt(object_right_front[5] ** 2 + object_right_front[6] ** 2)
+        object_left_behind_v = math.sqrt(object_left_behind[5] ** 2 + object_left_behind[6] ** 2)
+        object_right_behind_v = math.sqrt(object_right_behind[5] ** 2 + object_right_behind[6] ** 2)
+
+        if abs(object_front[0]) > 100:
+            object_front[0] = 0
+        if abs(object_behind[0]) > 100:
+            object_behind[0] = 0
+        if abs(object_left_front[0]) > 100:
+            object_left_front[0] = 0
+        if abs(object_right_front[0]) > 100:
+            object_right_front[0] = 0
+        if abs(object_left_behind[0]) > 100:
+            object_left_behind[0] = 0
+        if abs(object_right_behind[0]) > 100:
+            object_right_behind[0] = 0
+        if abs(object_front[1]) > 100:
+            object_front[1] = 0
+        if abs(object_behind[1]) > 100:
+            object_behind[1] = 0
+        if abs(object_left_front[1]) > 100:
+            object_left_front[1] = 0
+        if abs(object_right_front[1]) > 100:
+            object_right_front[1] = 0
+        if abs(object_left_behind[1]) > 100:
+            object_left_behind[1] = 0
+        if abs(object_right_behind[1]) > 100:
+            object_right_behind[1] = 0
+            
         if object_front_v > 100:
             object_front_v = 0
         if object_behind_v > 100:
@@ -80,13 +80,14 @@ for scenario in scenarios:
             object_left_behind_v = 0
         if object_right_behind_v > 100:
             object_right_behind_v = 0
-        observation = np.array([ego_v, state[1][0], state[1][1], object_front_v,
-                       state[2][0], state[2][1], object_behind_v,
-                       state[3][0], state[3][1], object_left_front_v,
-                       state[4][0], state[4][1], object_right_front_v,
-                       state[5][0], state[5][1], object_left_behind_v,
-                       state[6][0], state[6][1], object_right_behind_v])
-        ego_v_state.append(ego_v)
+        
+        observation = np.array([ego_v,
+                                object_front[0], object_front[1], object_front_v,
+                                object_behind[0], object_behind[1], object_behind_v,
+                                object_left_front[0], object_left_front[1], object_left_front_v,
+                                object_right_front[0], object_right_front[1], object_right_front_v,
+                                object_left_behind[0], object_left_behind[1], object_left_behind_v,
+                                object_right_behind[0], object_right_behind[1], object_right_behind_v])
 
         collision = 0  # Initialize collision to 0
         if abs(observation[1]) <= 4 and abs(observation[2]) <= 2:
@@ -110,18 +111,23 @@ for scenario in scenarios:
 
         if i != len(states_of_scenario) - 1:
             next_state = states_of_scenario[i + 1]
-            next_ego_v = math.sqrt(next_state[0][3] ** 2 + next_state[0][4] ** 2)
-            action = min(next_ego_v - 10, 10) * 0.1
+            next_ego = next_state[0]
+            next_ego_v = math.sqrt(next_ego[3] ** 2 + next_ego[4] ** 2)
+            accel = (next_ego_v - ego_v) * 10
+            ego_heading = ego[2]
+
+            action[0] = accel
+            action[1] = ego_heading
         else:
-            action = actions[-1][0]
+            action = actions[-1]
             done = 1
             reach = 1
 
-        reward = get_reward(observation, done, collision, ego_v, reach)
+        reward = get_reward(ego_v, action[0], collision, done, reach)
 
         rewards.append(reward)
         observations.append(observation)
-        actions.append([action])
+        actions.append(action)
         terminals.append([done])
 
 for i in range(1, len(observations)):

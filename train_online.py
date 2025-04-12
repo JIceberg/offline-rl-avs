@@ -12,8 +12,8 @@ agent = CQLAgent(state_dim, action_dim)
 replay_buffer = ReplayBuffer()
 
 # Training parameters
-num_episodes = 10000
-max_steps_per_episode = 300
+num_episodes = 1000
+max_steps_per_episode = 110
 BATCH_SIZE = 32
 
 # Training loop

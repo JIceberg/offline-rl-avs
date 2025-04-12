@@ -1,9 +1,3 @@
-"""
-Classic cart-pole system implemented by Rich Sutton et al.
-Copied from http://incompleteideas.net/sutton/book/code/pole.c
-permalink: https://perma.cc/C9ZM-652R
-"""
-
 import math
 import gym
 from gym import spaces, logger
@@ -15,60 +9,21 @@ import pickle
 from pathlib import Path
 import random
 
+def get_reward(ego_speed, ego_accel, collision, done, reach, dt=0.1):
+    r_terminal = 10 if reach else -10 if done else 0
+    r_collision = -100 if collision else 0
+    r_progress = ego_speed * dt
+    r_smooth = -abs(ego_accel) * 0.1
 
-def get_reward(observation, terminal, collision, action, reach):
-    if collision:
-        reward = 0.5 * action/20  - collision * 100
-    else:
-         reward = 0.5 * action/20 +  terminal * 10 * reach
-
-    return reward
-
+    return r_terminal + r_collision + r_progress + r_smooth
 
 def normalize_angle(angle_rad):
-    # to normalize an angle to [-pi, pi]
-    a = math.fmod(angle_rad + math.pi, 2.0 * math.pi)
-    if a < 0.0:
-        a = a + 2.0 * math.pi
-    return a - math.pi
-
-
-def linear_interpolate(path_point_0, path_point_1, rs_inter):
-    ''' path point interpolated linearly according to rs value
-    path_point_0 should be prior to path_point_1'''
-
-    def lerp(x0, x1, w):
-        return x0 + w * (x1 - x0)
-
-    def slerp(a0, a1, w):
-        # angular, for theta
-        a0_n = normalize_angle(a0)
-        a1_n = normalize_angle(a1)
-        d = a1_n - a0_n
-        if d > math.pi:
-            d = d - 2 * math.pi
-        elif d < -math.pi:
-            d = d + 2 * math.pi
-        a = a0_n + w * d
-        return normalize_angle(a)
-
-    rs_0 = path_point_0[2]
-    rs_1 = path_point_1[2]
-    weight = (rs_inter - rs_0) / (rs_1 - rs_0)
-    if weight < 0 or weight > 1:
-        print("weight error, not in [0, 1]")
-
-    rx_inter = lerp(path_point_0[0], path_point_1[0], weight)
-    ry_inter = lerp(path_point_0[1], path_point_1[1], weight)
-    rtheta_inter = slerp(path_point_0[3], path_point_1[3], weight)
-    return rx_inter, ry_inter, rtheta_inter
-
+    return (angle_rad + np.pi) % (2 * np.pi) - np.pi
 
 def object_to_ego(x, y, yaw):
     res_x = math.cos(yaw) * x - math.sin(yaw) * y
     res_y = math.sin(yaw) * x + math.cos(yaw) * y
     return res_x, res_y
-
 
 class OfflineRL(gym.Env):
     def __init__(self):
@@ -81,49 +36,13 @@ class OfflineRL(gym.Env):
             scenario = pickle.load(open(scenario_file_list, 'rb'))
             self.scenarios.append(scenario)
 
-        self.scenario = random.choice(self.scenarios)
-        self.ego_track = self.scenario['EGO']
-        self.object_tracks = []
-        for key in self.scenario.keys():
-            if key != 'EGO' and key != 'states':
-                self.object_tracks.append(self.scenario[key])
-
-        self.ego_x = self.ego_track.object_states[0].position[0]
-        self.ego_y = self.ego_track.object_states[0].position[1]
-        self.ego_yaw = self.ego_track.object_states[0].heading
-        self.ego_v = sqrt(self.ego_track.object_states[0].velocity[0] ** 2 +
-                          self.ego_track.object_states[0].velocity[1] ** 2)
-        self.trajectory = []
-        s = 0
-        for i in range(len(self.ego_track.object_states)):
-            if i == 0:
-                self.trajectory.append(
-                    [self.ego_track.object_states[i].position[0], self.ego_track.object_states[i].position[1],
-                     s, self.ego_track.object_states[i].heading])
-            else:
-                delta_s = sqrt((self.ego_track.object_states[i].position[0] -
-                                self.ego_track.object_states[i - 1].position[0]) ** 2 +
-                               (self.ego_track.object_states[i].position[1] -
-                                self.ego_track.object_states[i - 1].position[1]) ** 2)
-                s += delta_s
-                self.trajectory.append(
-                    [self.ego_track.object_states[i].position[0], self.ego_track.object_states[i].position[1],
-                     s, self.ego_track.object_states[i].heading])
-
-        s += 10
-        self.trajectory.append([self.trajectory[-1][0] + 10 * math.cos(self.trajectory[-1][3]), self.trajectory[-1][1] + 10 * math.sin(self.trajectory[-1][3]),
-                     s, self.trajectory[-1][3]])
-
         self.time = 0
         self.dt = 0.1
-        self.seed()
-        self.viewer = None
-        self.state = None
-        self.steps_beyond_done = None
 
-        self.x_threshold = 100000  # 小车x方向最大运动范围
+        self.x_threshold = 100000
         self.v_threshold = 100000
-        self.max_a = 1
+        self.max_speed = 20
+        self.max_a = 2
         high = np.array([self.v_threshold,
                          self.x_threshold,
                          self.x_threshold,
@@ -147,214 +66,201 @@ class OfflineRL(gym.Env):
                         dtype=np.float32)
 
         self.action_space = spaces.Box(
-            low=-self.max_a,
-            high=self.max_a, shape=(1,),
+            low=np.array([-np.pi, -self.max_a], dtype=np.float32),
+            high=np.array([np.pi, self.max_a], dtype=np.float32)
+        )
+        self.observation_space = spaces.Box(
+            low=-high,
+            high=high,
+            shape=(19,),
             dtype=np.float32
         )
-        self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
     def seed(self, seed=None):
         self.np_random, _ = seeding.np_random(seed)
 
     def step(self, action):
-
         done = 0
-        collision = 0
         reach = 0
 
-        self.s += (action[0] * 10+ 10) * 0.1
-        self.ego_v = action[0] * 10 + 10
-        # 插值得到现在的x, y, yaw
-        if self.s > self.trajectory[-1][2]:
-            self.ego_x = self.trajectory[-1][0]
-            self.ego_y = self.trajectory[-1][1]
-            self.ego_yaw = self.trajectory[-1][3]
-            reach = 1
-            done = 1
-        else:
-            for i in range(1, len(self.trajectory)):
-                if self.trajectory[i - 1][2] < self.s < self.trajectory[i][2]:
-                    self.ego_x, self.ego_y, self.ego_yaw = linear_interpolate(self.trajectory[i - 1],
-                                                                              self.trajectory[i],
-                                                                              self.s)
+        # find next ego position
+        accel, steering_angle = action[0], action[1]
+        accel = np.clip(accel, -self.max_a, self.max_a)
+        self.ego_v += accel * self.dt
+        self.ego_v = np.clip(self.ego_v, 0, self.max_speed)
+        self.ego_yaw += steering_angle * self.dt
+        self.ego_yaw = normalize_angle(self.ego_yaw)
+
+        dx = self.ego_v * np.cos(self.ego_yaw) * self.dt
+        dy = self.ego_v * np.sin(self.ego_yaw) * self.dt
+
+        self.ego_x += dx
+        self.ego_y += dy
+
+        # get nearby objects
+        object_front = [0.0 for _ in range(4)]
+        object_behind = [0.0 for _ in range(4)]
+        object_left_front = [0.0 for _ in range(4)]
+        object_right_front = [0.0 for _ in range(4)]
+        object_left_behind = [0.0 for _ in range(4)]
+        object_right_behind = [0.0 for _ in range(4)]
+
+        for other_track in self.object_tracks:
+            object_state = None
+            for other_state in other_track.object_states:
+                if other_state.timestep == self.time:
+                    object_state = other_state
                     break
-
-        # 通过环境车辆获取当前观测值
-        object_front = [0.0, 0.0, 0.0, 0.0]
-        object_behind = [0.0, 0.0, 0.0, 0.0]
-        object_left_front = [0.0, 0.0, 0.0, 0.0]
-        object_right_front = [0.0, 0.0, 0.0, 0.0]
-        object_left_behind = [0.0, 0.0, 0.0, 0.0]
-        object_right_behind = [0.0, 0.0, 0.0, 0.0]
-        for else_car_track in self.object_tracks:
-            # 时间框定
-            if else_car_track.object_states[0].timestep <= self.time <= else_car_track.object_states[-1].timestep:
-                for object_state in else_car_track.object_states:
-                    if object_state.timestep == self.time:
-                        object_x = object_state.position[0]
-                        object_y = object_state.position[1]
-                        object_yaw = object_state.heading
-                        object_v_x = object_state.velocity[0]
-                        object_v_y = object_state.velocity[1]
-
-                        x_to_ego, y_to_ego = object_to_ego(object_x - self.ego_x, object_y - self.ego_y, -self.ego_yaw)
-
-                        if abs(object_yaw - self.ego_yaw) > 90 / 180 * math.pi:
-                            continue
-                        if x_to_ego > 30 or x_to_ego < -12 or y_to_ego < -5.25 or y_to_ego > 5.25:
-                            continue
-                        # 选择前车
-                        if 0 < x_to_ego and -1.75 <= y_to_ego <= 1.75:
-                            if object_front[0] == 0:
-                                object_front[0] = x_to_ego
-                                object_front[1] = y_to_ego
-                                object_front[2] = sqrt(object_v_x ** 2 + object_v_y ** 2)
-                                object_front[3] = 1
-                            elif x_to_ego < object_front[0]:
-                                object_front[0] = x_to_ego
-                                object_front[1] = y_to_ego
-                                object_front[2] = sqrt(object_v_x ** 2 + object_v_y ** 2)
-                            else:
-                                continue
-                        # 选择后车
-                        if x_to_ego < 0 and -1.75 <= y_to_ego <= 1.75:
-                            if  object_behind[0] == 0:
-                                object_behind[0] = x_to_ego
-                                object_behind[1] = y_to_ego
-                                object_behind[2] = sqrt(object_v_x ** 2 + object_v_y ** 2)
-                                object_behind[3] = 1
-                            elif x_to_ego > object_behind[0]:
-                                object_behind[0] = x_to_ego
-                                object_behind[1] = y_to_ego
-                                object_behind[2] = sqrt(object_v_x ** 2 + object_v_y ** 2)
-                            else:
-                                continue
-                        # 选择右前车
-                        if y_to_ego < -1.75 and x_to_ego >= 0:
-                            if object_right_front[0] == 0 and object_right_front[1] == 0:
-                                object_right_front[0] = x_to_ego
-                                object_right_front[1] = y_to_ego
-                                object_right_front[2] = sqrt(object_v_x ** 2 + object_v_y ** 2)
-                                object_right_front[3] = 1
-                            elif math.sqrt(x_to_ego ** 2 + y_to_ego ** 2) < math.sqrt(
-                                    object_right_front[0] ** 2 + object_right_front[1] ** 2):
-                                object_right_front[0] = x_to_ego
-                                object_right_front[1] = y_to_ego
-                                object_right_front[2] = sqrt(object_v_x ** 2 + object_v_y ** 2)
-                            else:
-                                continue
-                        # 选择左前车
-                        if y_to_ego > 1.75 and x_to_ego >= 0:
-                            if object_left_front[0] == 0 and object_left_front[1] == 0:
-                                object_left_front[0] = x_to_ego
-                                object_left_front[1] = y_to_ego
-                                object_left_front[2] = sqrt(object_v_x ** 2 + object_v_y ** 2)
-                                object_left_front[3] = 1
-                            elif math.sqrt(x_to_ego ** 2 + y_to_ego ** 2) < math.sqrt(
-                                    object_left_front[0] ** 2 + object_left_front[1] ** 2):
-                                object_left_front[0] = x_to_ego
-                                object_left_front[1] = y_to_ego
-                                object_left_front[2] = sqrt(object_v_x ** 2 + object_v_y ** 2)
-                            else:
-                                continue
-                        # 选择右后车
-                        if y_to_ego < -1.75 and x_to_ego < 0:
-                            if object_right_behind[0] == 0 and object_right_behind[1] == 0:
-                                object_right_behind[0] = x_to_ego
-                                object_right_behind[1] = y_to_ego
-                                object_right_behind[2] = sqrt(object_v_x ** 2 + object_v_y ** 2)
-                                object_right_behind[3] = 1
-                            elif math.sqrt(x_to_ego ** 2 + y_to_ego ** 2) < math.sqrt(
-                                    object_right_behind[0] ** 2 + object_right_behind[1] ** 2):
-                                object_right_behind[0] = x_to_ego
-                                object_right_behind[1] = y_to_ego
-                                object_right_behind[2] = sqrt(object_v_x ** 2 + object_v_y ** 2)
-                            else:
-                                continue
-                        # 选择左后车
-                        if y_to_ego > 1.75 and x_to_ego < 0:
-                            if object_left_front[0] == 0 and object_left_front[1] == 0:
-                                object_left_behind[0] = x_to_ego
-                                object_left_behind[1] = y_to_ego
-                                object_left_behind[2] = sqrt(object_v_x ** 2 + object_v_y ** 2)
-                                object_left_behind[3] = 1
-                            elif math.sqrt(x_to_ego ** 2 + y_to_ego ** 2) < math.sqrt(
-                                    object_left_behind[0] ** 2 + object_left_behind[1] ** 2):
-                                object_left_behind[0] = x_to_ego
-                                object_left_behind[1] = y_to_ego
-                                object_left_behind[2] = sqrt(object_v_x ** 2 + object_v_y ** 2)
-                            else:
-                                continue
-                    else:
-                        continue
-            else:
+            if object_state is None:
                 continue
 
-        observation = np.array([self.ego_v,
-                       object_front[0], object_front[1], object_front[2],
-                       object_behind[0], object_behind[1], object_behind[2],
-                       object_left_front[0], object_left_front[1], object_left_front[2],
-                       object_right_front[0], object_right_front[1], object_right_front[2],
-                       object_left_behind[0], object_left_behind[1], object_left_behind[2],
-                       object_right_behind[0], object_right_behind[1], object_right_behind[2]])
+            object_x = object_state.position[0]
+            object_y = object_state.position[1]
+            object_yaw = object_state.heading
+            object_v_x = object_state.velocity[0]
+            object_v_y = object_state.velocity[1]
 
-        if observation[1] <= 4 and object_front[3] != 0.0:
+            object_v = math.sqrt(object_v_x ** 2 + object_v_y ** 2)
+
+            x_to_ego, y_to_ego = object_to_ego(object_x - self.ego_x,
+                                                object_y - self.ego_y,
+                                                -self.ego_yaw)                    
+            dist_to_ego = sqrt(x_to_ego ** 2 + y_to_ego ** 2)
+
+            # ignore objects far away
+            if abs(x_to_ego) > 20 or abs(y_to_ego) > 20:
+                continue
+
+            # front
+            if x_to_ego > 0 and y_to_ego <= 2 and y_to_ego >= -2:
+                if object_front[0] == 0:
+                    object_front[0] = x_to_ego
+                    object_front[1] = y_to_ego
+                    object_front[2] = object_v
+                    object_front[3] = 1
+                elif x_to_ego < object_front[0]:
+                    object_front[0] = x_to_ego
+                    object_front[1] = y_to_ego
+                    object_front[2] = object_v
+                else:
+                    continue
+
+            # behind
+            if x_to_ego < 0 and y_to_ego <= 2 and y_to_ego >= -2:
+                if object_behind[0] == 0:
+                    object_behind[0] = x_to_ego
+                    object_behind[1] = y_to_ego
+                    object_behind[2] = object_v
+                    object_behind[3] = 1
+                elif x_to_ego > object_behind[0]:
+                    object_behind[0] = x_to_ego
+                    object_behind[1] = y_to_ego
+                    object_behind[2] = object_v
+                else:
+                    continue
+            
+            # left front
+            if x_to_ego > 0 and y_to_ego > 2:
+                if object_left_front[0] == 0:
+                    object_left_front[0] = x_to_ego
+                    object_left_front[1] = y_to_ego
+                    object_left_front[2] = object_v
+                    object_left_front[3] = 1
+                elif dist_to_ego < sqrt(object_left_front[0] ** 2 + object_left_front[1] ** 2):
+                    object_left_front[0] = x_to_ego
+                    object_left_front[1] = y_to_ego
+                    object_left_front[2] = object_v
+                else:
+                    continue
+            
+            # right front
+            if x_to_ego > 0 and y_to_ego < -2:
+                if object_right_front[0] == 0:
+                    object_right_front[0] = x_to_ego
+                    object_right_front[1] = y_to_ego
+                    object_right_front[2] = object_v
+                    object_right_front[3] = 1
+                elif dist_to_ego < sqrt(object_right_front[0] ** 2 + object_right_front[1] ** 2):
+                    object_right_front[0] = x_to_ego
+                    object_right_front[1] = y_to_ego
+                    object_right_front[2] = object_v
+                else:
+                    continue
+
+            # left behind
+            if x_to_ego < 0 and y_to_ego > 2:
+                if object_left_behind[0] == 0:
+                    object_left_behind[0] = x_to_ego
+                    object_left_behind[1] = y_to_ego
+                    object_left_behind[2] = object_v
+                    object_left_behind[3] = 1
+                elif dist_to_ego < sqrt(object_left_behind[0] ** 2 + object_left_behind[1] ** 2):
+                    object_left_behind[0] = x_to_ego
+                    object_left_behind[1] = y_to_ego
+                    object_left_behind[2] = object_v
+                else:
+                    continue
+            
+            # right behind
+            if x_to_ego < 0 and y_to_ego < -2:
+                if object_right_behind[0] == 0:
+                    object_right_behind[0] = x_to_ego
+                    object_right_behind[1] = y_to_ego
+                    object_right_behind[2] = object_v
+                    object_right_behind[3] = 1
+                elif dist_to_ego < sqrt(object_right_behind[0] ** 2 + object_right_behind[1] ** 2):
+                    object_right_behind[0] = x_to_ego
+                    object_right_behind[1] = y_to_ego
+                    object_right_behind[2] = object_v
+                else:
+                    continue
+
+        # print object locations
+        # print('object_front:', object_front)
+        # print('object_behind:', object_behind)
+        # print('object_left_front:', object_left_front)
+        # print('object_right_front:', object_right_front)
+        # print('object_left_behind:', object_left_behind)
+        # print('object_right_behind:', object_right_behind)
+
+        observation = np.array([self.ego_v,
+                                object_front[0], object_front[1], object_front[2],
+                                object_behind[0], object_behind[1], object_behind[2],
+                                object_left_front[0], object_left_front[1], object_left_front[2],
+                                object_right_front[0], object_right_front[1], object_right_front[2],
+                                object_left_behind[0], object_left_behind[1], object_left_behind[2],
+                                object_right_behind[0], object_right_behind[1], object_right_behind[2]])
+        
+        # check collision
+        collision = 0
+        if abs(observation[1]) <= 4 and abs(observation[2]) <= 2 and object_front[3]:
             done = 1
             collision = 1
-        if observation[4] >= -4 and object_behind[3] != 0.0:
+        if abs(observation[4]) <= 4 and abs(observation[5]) <= 2 and object_behind[3]:
             done = 1
             collision = 1
-        if observation[7] <= 4 and observation[8] <= 2 and object_left_front[3] != 0.0:
+        if abs(observation[7]) <= 4 and abs(observation[8]) <= 2 and object_left_front[3]:
             done = 1
             collision = 1
-        if observation[10] <= 4 and observation[11] >= -2 and object_right_front[3] != 0.0:
+        if abs(observation[10]) <= 4 and abs(observation[11]) <= 2 and object_right_front[3]:
             done = 1
             collision = 1
-        if observation[13] >= -4 and observation[14] <= 2 and object_left_behind[3] != 0.0:
+        if abs(observation[13]) <= 4 and abs(observation[14]) <= 2 and object_left_behind[3]:
             done = 1
             collision = 1
-        if observation[16] >= -4 and observation[17] >= -2 and object_right_behind[3] != 0.0:
+        if abs(observation[16]) <= 4 and abs(observation[17]) <= 2 and object_right_behind[3]:
             done = 1
             collision = 1
 
         self.time += 1
-
-        if self.time == 109:
+        if self.time == len(self.scenario['states']):
             done = 1
+            reach = 1
 
-        return observation, float(get_reward(observation, done, collision, self.ego_v, reach)), float(done), collision
-
-    def reset(self, *, seed=None, options=None):
-        self.scenario = random.choice(self.scenarios)
-        self.ego_track = self.scenario['EGO']
-        self.object_tracks = []
-        for key in self.scenario.keys():
-            if key != 'EGO' and key != 'states':
-                self.object_tracks.append(self.scenario[key])
-
-        self.ego_x = self.ego_track.object_states[0].position[0]
-        self.ego_y = self.ego_track.object_states[0].position[1]
-        self.ego_yaw = self.ego_track.object_states[0].heading
-        self.ego_v = sqrt(self.ego_track.object_states[0].velocity[0] ** 2 +
-                          self.ego_track.object_states[0].velocity[1] ** 2)
-        self.s = 0
-        self.trajectory = []
-        s = 0
-        for i in range(len(self.ego_track.object_states)):
-            if i == 0:
-                self.trajectory.append(
-                    [self.ego_track.object_states[i].position[0], self.ego_track.object_states[i].position[1],
-                     s, self.ego_track.object_states[i].heading])
-            else:
-                delta_s = sqrt((self.ego_track.object_states[i].position[0] -
-                                self.ego_track.object_states[i - 1].position[0]) ** 2 +
-                               (self.ego_track.object_states[i].position[1] -
-                                self.ego_track.object_states[i - 1].position[1]) ** 2)
-                s += delta_s
-                self.trajectory.append(
-                    [self.ego_track.object_states[i].position[0], self.ego_track.object_states[i].position[1],
-                     s, self.ego_track.object_states[i].heading])
-
+        reward = get_reward(self.ego_v, action[0], collision, done, reach, dt=self.dt)
+        return observation, float(reward), float(done), collision
+    
+    def _get_initial_state(self):
         state = self.scenario['states'][0]
         ego_v = math.sqrt(state[0][3] ** 2 + state[0][4] ** 2)
         object_front_v = math.sqrt(state[1][5] ** 2 + state[1][6] ** 2)
@@ -363,17 +269,31 @@ class OfflineRL(gym.Env):
         object_right_front_v = math.sqrt(state[4][5] ** 2 + state[4][6] ** 2)
         object_left_behind_v = math.sqrt(state[5][5] ** 2 + state[5][6] ** 2)
         object_right_behind_v = math.sqrt(state[6][5] ** 2 + state[6][6] ** 2)
-        observation = np.array([ego_v, state[1][0], state[1][1], object_front_v,
-                       state[2][0], state[2][1], object_behind_v,
-                       state[3][0], state[3][1], object_left_front_v,
-                       state[4][0], state[4][1], object_right_front_v,
-                       state[5][0], state[5][1], object_left_behind_v,
-                       state[6][0], state[6][1], object_right_behind_v])
+        observation = np.array([ego_v,
+                                state[1][0], state[1][1], object_front_v,
+                                state[2][0], state[2][1], object_behind_v,
+                                state[3][0], state[3][1], object_left_front_v,
+                                state[4][0], state[4][1], object_right_front_v,
+                                state[5][0], state[5][1], object_left_behind_v,
+                                state[6][0], state[6][1], object_right_behind_v])
+        return observation
+
+    def reset(self, *, seed=None, options=None):
+        self.scenario = random.choice(self.scenarios)
+        self.ego_track = self.scenario['EGO']
+        self.object_tracks = self.scenario['others']
+
+        self.ego_x = self.ego_track.object_states[0].position[0]
+        self.ego_y = self.ego_track.object_states[0].position[1]
+
+        self.ego_yaw = self.ego_track.object_states[0].heading
+        self.ego_v = sqrt(self.ego_track.object_states[0].velocity[0] ** 2 +
+                          self.ego_track.object_states[0].velocity[1] ** 2)
+
         self.time = 0
-        # self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(3,))
         self.viewer = None
         self.steps_beyond_done = None
-        return observation, {}
+        return self._get_initial_state(), {}
 
     def render(self, mode='human'):
         screen_width = 600
