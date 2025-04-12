@@ -3,7 +3,7 @@ import random
 import pickle
 
 class ReplayBuffer:
-    def __init__(self, capacity=100000):
+    def __init__(self, capacity=1000000):
         self.capacity = capacity
         self.buffer = []
         self.position = 0

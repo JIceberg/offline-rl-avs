@@ -123,8 +123,8 @@ class CQLAgent:
             next_actions, new_log_pi = self.policy(next_states)
             next_q1 = self.q1_target(next_states, next_actions)
             next_q2 = self.q2_target(next_states, next_actions)
-            next_q = torch.min(next_q1, next_q2)
-            target_q = rewards + (1 - dones) * self.gamma * next_q
+            next_q = torch.min(next_q1, next_q2).squeeze(-1)  # Ensure proper shape
+            target_q = rewards + (1 - dones) * self.gamma * next_q.unsqueeze(-1)  # Match q1/q2 shape
 
         q1 = self.q1(states, actions)
         q2 = self.q2(states, actions)

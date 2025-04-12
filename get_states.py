@@ -62,7 +62,7 @@ if __name__ == "__main__":
         'data_of_argo/train')
     all_scenario_files = sorted(argoverse_scenario_dir.rglob("*.parquet"))
     scenario_file_list = (
-        all_scenario_files[:233])
+        all_scenario_files[:1000])
 
 
     for scenario_file in scenario_file_list:

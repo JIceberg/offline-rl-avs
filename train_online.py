@@ -12,9 +12,9 @@ agent = CQLAgent(state_dim, action_dim)
 replay_buffer = ReplayBuffer()
 
 # Training parameters
-num_episodes = 100
+num_episodes = 10000
 max_steps_per_episode = 300
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 
 # Training loop
 for episode in range(num_episodes):
@@ -33,18 +33,20 @@ for episode in range(num_episodes):
         
         # Update state
         state = next_state
-                
-        # end if done or if we collided
-        if done or collision:
-            print(f"Episode {episode + 1}/{num_episodes} completed in {step + 1} steps with total reward {total_reward}")
-            break
-        
+
         # Update the agent if the replay buffer has enough samples
         if len(replay_buffer) >= BATCH_SIZE:
             batch = replay_buffer.sample(BATCH_SIZE)
             states, actions, rewards, next_states, dones = batch
             agent.update(states, actions, rewards, next_states, dones)
+                
+        # end if done or if we collided
+        if done or collision:
+            print(f"Episode {episode + 1}/{num_episodes} completed in {step + 1} steps with total reward {total_reward}")
+            break
     
+print(len(replay_buffer))
+
 # Save the replay buffer to a file
 with open("expert_dataset.pkl", "wb") as f:
     pickle.dump(replay_buffer, f)

@@ -75,7 +75,7 @@ class OfflineRL(gym.Env):
         argoverse_scenario_dir = Path(
             'data_for_simulator/')
         all_scenario_files = sorted(argoverse_scenario_dir.rglob("*.pkl"))
-        scenario_file_lists = (all_scenario_files[:500])
+        scenario_file_lists = (all_scenario_files[:233])
         self.scenarios = []
         for scenario_file_list in scenario_file_lists:
             scenario = pickle.load(open(scenario_file_list, 'rb'))
@@ -298,31 +298,31 @@ class OfflineRL(gym.Env):
                        object_left_behind[0], object_left_behind[1], object_left_behind[2],
                        object_right_behind[0], object_right_behind[1], object_right_behind[2]])
 
-        if observation[1] <= 4 and object_front[3]:
+        if observation[1] <= 4 and object_front[3] != 0.0:
             done = 1
             collision = 1
-        if observation[4] >= -4 and object_behind[3]:
+        if observation[4] >= -4 and object_behind[3] != 0.0:
             done = 1
             collision = 1
-        if observation[7] <= 4 and observation[8] <= 2 and object_left_front[3]:
+        if observation[7] <= 4 and observation[8] <= 2 and object_left_front[3] != 0.0:
             done = 1
             collision = 1
-        if observation[10] <= 4 and observation[11] >= -2 and object_right_front[3]:
+        if observation[10] <= 4 and observation[11] >= -2 and object_right_front[3] != 0.0:
             done = 1
             collision = 1
-        if observation[13] >= -4 and observation[14] <= 2 and object_left_behind[3]:
+        if observation[13] >= -4 and observation[14] <= 2 and object_left_behind[3] != 0.0:
             done = 1
             collision = 1
-        if observation[16] >= -4 and observation[17] >= -2 and object_right_behind[3]:
+        if observation[16] >= -4 and observation[17] >= -2 and object_right_behind[3] != 0.0:
             done = 1
             collision = 1
 
         self.time += 1
 
-        if self.time == 300:
+        if self.time == 109:
             done = 1
 
-        return observation, float(get_reward(observation, done, collision, action[0] * 10 + 10, reach)), float(done), collision
+        return observation, float(get_reward(observation, done, collision, self.ego_v, reach)), float(done), collision
 
     def reset(self, *, seed=None, options=None):
         self.scenario = random.choice(self.scenarios)
