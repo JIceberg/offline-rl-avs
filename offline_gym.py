@@ -10,12 +10,10 @@ from pathlib import Path
 import random
 
 def get_reward(ego_speed, ego_accel, collision, done, reach, dt=0.1):
-    r_terminal = 10 if reach else -10 if done else 0
-    r_collision = -100 if collision else 0
-    r_progress = ego_speed * dt
-    r_smooth = -abs(ego_accel) * 0.1
-
-    return r_terminal + r_collision + r_progress + r_smooth
+    if collision:
+        return 0.5 * ego_speed / 20 - 100 * collision
+    else:
+        return 0.5 * ego_speed / 20 + done * 10 * reach
 
 def normalize_angle(angle_rad):
     return (angle_rad + np.pi) % (2 * np.pi) - np.pi
