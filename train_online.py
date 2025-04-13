@@ -12,9 +12,10 @@ agent = CQLAgent(state_dim, action_dim)
 replay_buffer = ReplayBuffer()
 
 # Training parameters
-num_episodes = 1000
+num_episodes = 100
 max_steps_per_episode = 110
 BATCH_SIZE = 32
+NUM_EVAL_TRAJS = 10
 
 # Training loop
 for episode in range(num_episodes):
@@ -44,6 +45,37 @@ for episode in range(num_episodes):
         if done or collision:
             print(f"Episode {episode + 1}/{num_episodes} completed in {step + 1} steps with total reward {total_reward}")
             break
+
+# evaluate
+traj_reward = []
+len_traj = []
+num_crashes = 0
+for traj in range(NUM_EVAL_TRAJS):
+    # Reset the environment
+    state, _ = env.reset()
+    total_reward = 0
+
+    for step in range(max_steps_per_episode):
+        # Select action from the agent
+        action = agent.get_action(state, deterministic=True)
+
+        # Step the environment
+        next_state, reward, done, collision = env.step(action)
+        total_reward += reward
+
+        # Update state
+        state = next_state
+
+        if done:
+            if collision:
+                num_crashes += 1
+            len_traj.append(step)
+            traj_reward.append(total_reward)
+            break
+
+avg_reward = sum(traj_reward) / len(traj_reward)
+avg_length = sum(len_traj) / len(len_traj)
+print(f"Average Reward: {avg_reward:.4f}, Crashes: {num_crashes}/{NUM_EVAL_TRAJS}, Average Length: {avg_length:.2f}")
     
 print(len(replay_buffer))
 

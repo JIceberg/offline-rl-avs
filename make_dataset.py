@@ -123,7 +123,7 @@ for scenario in scenarios:
             done = 1
             reach = 1
 
-        reward = get_reward(ego_v, action[0], collision, done, reach)
+        reward = get_reward(ego_v, action[0], action[1], collision, done, reach)
 
         rewards.append(reward)
         observations.append(observation)
