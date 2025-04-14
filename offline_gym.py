@@ -9,12 +9,26 @@ import pickle
 from pathlib import Path
 import random
 
-def get_reward(ego_speed, ego_accel, ego_steer, collision, done, reach):
+def get_reward(observation, ego_speed, ego_accel, ego_steer, collision, done, reach):
     r_terminal = 10 if reach else -5 if done else 0
     r_collision = -100 if collision else 0
-    r_speed = ego_speed / 20
 
-    return r_terminal + r_collision + r_speed
+    # min_dist = float('inf')
+    # for i in range(1, len(observation), 4):
+    #     dx, dy = observation[i], observation[i+1]
+    #     dist = (dx**2 + dy**2)**0.5
+    #     min_dist = min(min_dist, dist)
+
+    # r_safety = 0
+    # if min_dist < 3.0:
+    #     r_safety = - (3.0 - min_dist) * 2
+    # elif min_dist > 6.0:
+    #     r_safety = 10
+
+    r_speed = ego_speed / 20
+    r_smooth = -0.1 * abs(ego_accel)
+
+    return r_terminal + r_collision + r_speed + r_smooth # + r_safety
 
 def normalize_angle(angle_rad):
     return (angle_rad + np.pi) % (2 * np.pi) - np.pi
@@ -46,32 +60,38 @@ class OfflineRL(gym.Env):
                          self.x_threshold,
                          self.x_threshold,
                          self.v_threshold,
+                         np.pi,
                          self.x_threshold,
                          self.x_threshold,
                          self.v_threshold,
+                         np.pi,
                          self.x_threshold,
                          self.x_threshold,
                          self.v_threshold,
+                         np.pi,
                          self.x_threshold,
                          self.x_threshold,
                          self.v_threshold,
+                         np.pi,
                          self.x_threshold,
                          self.x_threshold,
                          self.v_threshold,
+                         np.pi,
                          self.x_threshold,
                          self.x_threshold,
-                         self.v_threshold
+                         self.v_threshold,
+                         np.pi
                          ],
                         dtype=np.float32)
 
         self.action_space = spaces.Box(
-            low=np.array([-np.pi/4, -self.max_a], dtype=np.float32),
-            high=np.array([np.pi/4, self.max_a], dtype=np.float32)
+            low=np.array([-self.max_a, -np.pi/4], dtype=np.float32),
+            high=np.array([self.max_a, np.pi/4], dtype=np.float32)
         )
         self.observation_space = spaces.Box(
             low=-high,
             high=high,
-            shape=(19,),
+            shape=(25,),
             dtype=np.float32
         )
 
@@ -98,12 +118,12 @@ class OfflineRL(gym.Env):
         self.ego_y += dy
 
         # get nearby objects
-        object_front = [0.0 for _ in range(4)]
-        object_behind = [0.0 for _ in range(4)]
-        object_left_front = [0.0 for _ in range(4)]
-        object_right_front = [0.0 for _ in range(4)]
-        object_left_behind = [0.0 for _ in range(4)]
-        object_right_behind = [0.0 for _ in range(4)]
+        object_front = [0.0 for _ in range(5)]
+        object_behind = [0.0 for _ in range(5)]
+        object_left_front = [0.0 for _ in range(5)]
+        object_right_front = [0.0 for _ in range(5)]
+        object_left_behind = [0.0 for _ in range(5)]
+        object_right_behind = [0.0 for _ in range(5)]
 
         for other_track in self.object_tracks:
             object_state = None
@@ -137,11 +157,13 @@ class OfflineRL(gym.Env):
                     object_front[0] = x_to_ego
                     object_front[1] = y_to_ego
                     object_front[2] = object_v
-                    object_front[3] = 1
+                    object_front[3] = object_yaw
+                    object_front[4] = 1
                 elif x_to_ego < object_front[0]:
                     object_front[0] = x_to_ego
                     object_front[1] = y_to_ego
                     object_front[2] = object_v
+                    object_front[3] = object_yaw
                 else:
                     continue
 
@@ -151,11 +173,13 @@ class OfflineRL(gym.Env):
                     object_behind[0] = x_to_ego
                     object_behind[1] = y_to_ego
                     object_behind[2] = object_v
-                    object_behind[3] = 1
+                    object_behind[3] = object_yaw
+                    object_behind[4] = 1
                 elif x_to_ego > object_behind[0]:
                     object_behind[0] = x_to_ego
                     object_behind[1] = y_to_ego
                     object_behind[2] = object_v
+                    object_behind[3] = object_yaw
                 else:
                     continue
             
@@ -165,11 +189,13 @@ class OfflineRL(gym.Env):
                     object_left_front[0] = x_to_ego
                     object_left_front[1] = y_to_ego
                     object_left_front[2] = object_v
-                    object_left_front[3] = 1
+                    object_left_front[3] = object_yaw
+                    object_left_front[4] = 1
                 elif dist_to_ego < sqrt(object_left_front[0] ** 2 + object_left_front[1] ** 2):
                     object_left_front[0] = x_to_ego
                     object_left_front[1] = y_to_ego
                     object_left_front[2] = object_v
+                    object_left_front[3] = object_yaw
                 else:
                     continue
             
@@ -179,11 +205,13 @@ class OfflineRL(gym.Env):
                     object_right_front[0] = x_to_ego
                     object_right_front[1] = y_to_ego
                     object_right_front[2] = object_v
-                    object_right_front[3] = 1
+                    object_right_front[3] = object_yaw
+                    object_right_front[4] = 1
                 elif dist_to_ego < sqrt(object_right_front[0] ** 2 + object_right_front[1] ** 2):
                     object_right_front[0] = x_to_ego
                     object_right_front[1] = y_to_ego
                     object_right_front[2] = object_v
+                    object_right_front[3] = object_yaw
                 else:
                     continue
 
@@ -193,11 +221,13 @@ class OfflineRL(gym.Env):
                     object_left_behind[0] = x_to_ego
                     object_left_behind[1] = y_to_ego
                     object_left_behind[2] = object_v
-                    object_left_behind[3] = 1
+                    object_left_behind[3] = object_yaw
+                    object_left_behind[4] = 1
                 elif dist_to_ego < sqrt(object_left_behind[0] ** 2 + object_left_behind[1] ** 2):
                     object_left_behind[0] = x_to_ego
                     object_left_behind[1] = y_to_ego
                     object_left_behind[2] = object_v
+                    object_left_behind[3] = object_yaw
                 else:
                     continue
             
@@ -207,11 +237,13 @@ class OfflineRL(gym.Env):
                     object_right_behind[0] = x_to_ego
                     object_right_behind[1] = y_to_ego
                     object_right_behind[2] = object_v
-                    object_right_behind[3] = 1
+                    object_right_behind[3] = object_yaw
+                    object_right_behind[4] = 1
                 elif dist_to_ego < sqrt(object_right_behind[0] ** 2 + object_right_behind[1] ** 2):
                     object_right_behind[0] = x_to_ego
                     object_right_behind[1] = y_to_ego
                     object_right_behind[2] = object_v
+                    object_right_behind[3] = object_yaw
                 else:
                     continue
 
@@ -228,31 +260,31 @@ class OfflineRL(gym.Env):
         # print('object_right_behind:', object_right_behind)
 
         observation = np.array([self.ego_v,
-                                object_front[0], object_front[1], object_front[2],
-                                object_behind[0], object_behind[1], object_behind[2],
-                                object_left_front[0], object_left_front[1], object_left_front[2],
-                                object_right_front[0], object_right_front[1], object_right_front[2],
-                                object_left_behind[0], object_left_behind[1], object_left_behind[2],
-                                object_right_behind[0], object_right_behind[1], object_right_behind[2]])
+                                object_front[0], object_front[1], object_front[2], object_front[3],
+                                object_behind[0], object_behind[1], object_behind[2], object_behind[3],
+                                object_left_front[0], object_left_front[1], object_left_front[2], object_left_front[3],
+                                object_right_front[0], object_right_front[1], object_right_front[2], object_right_front[3],
+                                object_left_behind[0], object_left_behind[1], object_left_behind[2], object_left_behind[3],
+                                object_right_behind[0], object_right_behind[1], object_right_behind[2], object_right_behind[3]])
         
         # check collision
         collision = 0
-        if abs(observation[1]) <= 4 and abs(observation[2]) <= 2 and object_front[3]:
+        if abs(observation[1]) <= 4 and abs(observation[2]) <= 2 and object_front[4]:
             done = 1
             collision = 1
-        if abs(observation[4]) <= 4 and abs(observation[5]) <= 2 and object_behind[3]:
+        if abs(observation[5]) <= 4 and abs(observation[6]) <= 2 and object_behind[4]:
             done = 1
             collision = 1
-        if abs(observation[7]) <= 4 and abs(observation[8]) <= 2 and object_left_front[3]:
+        if abs(observation[9]) <= 4 and abs(observation[10]) <= 2 and object_left_front[4]:
             done = 1
             collision = 1
-        if abs(observation[10]) <= 4 and abs(observation[11]) <= 2 and object_right_front[3]:
+        if abs(observation[13]) <= 4 and abs(observation[14]) <= 2 and object_right_front[4]:
             done = 1
             collision = 1
-        if abs(observation[13]) <= 4 and abs(observation[14]) <= 2 and object_left_behind[3]:
+        if abs(observation[17]) <= 4 and abs(observation[18]) <= 2 and object_left_behind[4]:
             done = 1
             collision = 1
-        if abs(observation[16]) <= 4 and abs(observation[17]) <= 2 and object_right_behind[3]:
+        if abs(observation[21]) <= 4 and abs(observation[22]) <= 2 and object_right_behind[4]:
             done = 1
             collision = 1
 
@@ -261,7 +293,7 @@ class OfflineRL(gym.Env):
             done = 1
             reach = 1
 
-        reward = get_reward(self.ego_v, action[0], action[1], collision, done, reach)
+        reward = get_reward(observation, self.ego_v, action[0], action[1], collision, done, reach)
         return observation, float(reward), float(done), collision
     
     def _get_initial_state(self):
@@ -274,12 +306,12 @@ class OfflineRL(gym.Env):
         object_left_behind_v = math.sqrt(state[5][5] ** 2 + state[5][6] ** 2)
         object_right_behind_v = math.sqrt(state[6][5] ** 2 + state[6][6] ** 2)
         observation = np.array([ego_v,
-                                state[1][0], state[1][1], object_front_v,
-                                state[2][0], state[2][1], object_behind_v,
-                                state[3][0], state[3][1], object_left_front_v,
-                                state[4][0], state[4][1], object_right_front_v,
-                                state[5][0], state[5][1], object_left_behind_v,
-                                state[6][0], state[6][1], object_right_behind_v])
+                                state[1][0], state[1][1], object_front_v, state[1][4],
+                                state[2][0], state[2][1], object_behind_v, state[2][4],
+                                state[3][0], state[3][1], object_left_front_v, state[3][4],
+                                state[4][0], state[4][1], object_right_front_v, state[4][4],
+                                state[5][0], state[5][1], object_left_behind_v, state[5][4],
+                                state[6][0], state[6][1], object_right_behind_v, state[6][4]])
         return observation
 
     def reset(self, *, seed=None, options=None):

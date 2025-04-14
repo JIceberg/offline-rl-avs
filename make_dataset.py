@@ -82,30 +82,31 @@ for scenario in scenarios:
             object_right_behind_v = 0
         
         observation = np.array([ego_v,
-                                object_front[0], object_front[1], object_front_v,
-                                object_behind[0], object_behind[1], object_behind_v,
-                                object_left_front[0], object_left_front[1], object_left_front_v,
-                                object_right_front[0], object_right_front[1], object_right_front_v,
-                                object_left_behind[0], object_left_behind[1], object_left_behind_v,
-                                object_right_behind[0], object_right_behind[1], object_right_behind_v])
+                                object_front[0], object_front[1], object_front_v, object_front[4],
+                                object_behind[0], object_behind[1], object_behind_v, object_behind[4],
+                                object_left_front[0], object_left_front[1], object_left_front_v, object_left_front[4],
+                                object_right_front[0], object_right_front[1], object_right_front_v, object_right_front[4],
+                                object_left_behind[0], object_left_behind[1], object_left_behind_v, object_left_behind[4],
+                                object_right_behind[0], object_right_behind[1], object_right_behind_v, object_right_behind[4]
+                                ], dtype='float32')
 
         collision = 0  # Initialize collision to 0
         if abs(observation[1]) <= 4 and abs(observation[2]) <= 2:
             done = 1
             collision = 1
-        if abs(observation[4]) <= 4 and abs(observation[5]) <= 2:
+        if abs(observation[5]) <= 4 and abs(observation[6]) <= 2:
             done = 1
             collision = 1
-        if abs(observation[7]) <= 4 and abs(observation[8]) <= 2:
-            done = 1
-            collision = 1
-        if abs(observation[10]) <= 4 and abs(observation[11]) <= 2:
+        if abs(observation[9]) <= 4 and abs(observation[10]) <= 2:
             done = 1
             collision = 1
         if abs(observation[13]) <= 4 and abs(observation[14]) <= 2:
             done = 1
             collision = 1
-        if abs(observation[16]) <= 4 and abs(observation[17]) <= 2:
+        if abs(observation[17]) <= 4 and abs(observation[18]) <= 2:
+            done = 1
+            collision = 1
+        if abs(observation[21]) <= 4 and abs(observation[22]) <= 2:
             done = 1
             collision = 1
 
@@ -123,7 +124,7 @@ for scenario in scenarios:
             done = 1
             reach = 1
 
-        reward = get_reward(ego_v, action[0], action[1], collision, done, reach)
+        reward = get_reward(observation, ego_v, action[0], action[1], collision, done, reach)
 
         rewards.append(reward)
         observations.append(observation)

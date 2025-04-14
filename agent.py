@@ -29,7 +29,7 @@ class PolicyNetwork(nn.Module):
         self.fc1 = nn.Linear(state_dim, hidden_size)
         self.fc2 = nn.Linear(hidden_size, hidden_size)
         self.mu = nn.Linear(hidden_size, action_dim)
-        self.log_std_linear = nn.Linear(256, action_dim)
+        self.log_std_linear = nn.Linear(hidden_size, action_dim)
         self.log_std_min = -20
         self.log_std_max = 2
 
@@ -130,31 +130,31 @@ class CQLAgent:
         q2 = self.q2(states, actions)
         bellman_error = F.mse_loss(q1, target_q) + F.mse_loss(q2, target_q)
 
-        # random_actions = torch.FloatTensor(q1.shape[0] * 10, actions.shape[-1]).uniform_(-1, 1).to(self.device)
-        # num_repeat = int (random_actions.shape[0] / states.shape[0])
-        # temp_states = states.unsqueeze(1).repeat(1, num_repeat, 1).view(states.shape[0] * num_repeat, states.shape[1])
-        # temp_next_states = next_states.unsqueeze(1).repeat(1, num_repeat, 1).view(next_states.shape[0] * num_repeat, next_states.shape[1])
+        random_actions = torch.FloatTensor(q1.shape[0] * 10, actions.shape[-1]).uniform_(-1, 1).to(self.device)
+        num_repeat = int (random_actions.shape[0] / states.shape[0])
+        temp_states = states.unsqueeze(1).repeat(1, num_repeat, 1).view(states.shape[0] * num_repeat, states.shape[1])
+        temp_next_states = next_states.unsqueeze(1).repeat(1, num_repeat, 1).view(next_states.shape[0] * num_repeat, next_states.shape[1])
 
-        # current_pi_values1, current_pi_values2  = self._compute_policy_values(temp_states, temp_states)
-        # next_pi_values1, next_pi_values2 = self._compute_policy_values(temp_next_states, temp_states)
+        current_pi_values1, current_pi_values2  = self._compute_policy_values(temp_states, temp_states)
+        next_pi_values1, next_pi_values2 = self._compute_policy_values(temp_next_states, temp_states)
 
-        # random_values1 = self._compute_random_values(temp_states, random_actions, self.q1).reshape(states.shape[0], num_repeat, 1)
-        # random_values2 = self._compute_random_values(temp_states, random_actions, self.q2).reshape(states.shape[0], num_repeat, 1)
+        random_values1 = self._compute_random_values(temp_states, random_actions, self.q1).reshape(states.shape[0], num_repeat, 1)
+        random_values2 = self._compute_random_values(temp_states, random_actions, self.q2).reshape(states.shape[0], num_repeat, 1)
 
-        # current_pi_values1 = current_pi_values1.reshape(states.shape[0], num_repeat, 1)
-        # current_pi_values2 = current_pi_values2.reshape(states.shape[0], num_repeat, 1)
+        current_pi_values1 = current_pi_values1.reshape(states.shape[0], num_repeat, 1)
+        current_pi_values2 = current_pi_values2.reshape(states.shape[0], num_repeat, 1)
 
-        # next_pi_values1 = next_pi_values1.reshape(states.shape[0], num_repeat, 1)
-        # next_pi_values2 = next_pi_values2.reshape(states.shape[0], num_repeat, 1)
+        next_pi_values1 = next_pi_values1.reshape(states.shape[0], num_repeat, 1)
+        next_pi_values2 = next_pi_values2.reshape(states.shape[0], num_repeat, 1)
 
-        # cat_q1 = torch.cat([random_values1, current_pi_values1, next_pi_values1], 1)
-        # cat_q2 = torch.cat([random_values2, current_pi_values2, next_pi_values2], 1)
+        cat_q1 = torch.cat([random_values1, current_pi_values1, next_pi_values1], 1)
+        cat_q2 = torch.cat([random_values2, current_pi_values2, next_pi_values2], 1)
 
-        # cql1_scaled_loss = ((torch.logsumexp(cat_q1, dim=1).mean() * self.cql_weight) - q1.mean()) * self.cql_weight
-        # cql2_scaled_loss = ((torch.logsumexp(cat_q2, dim=1).mean() * self.cql_weight) - q2.mean()) * self.cql_weight
-        # cql_loss = cql1_scaled_loss + cql2_scaled_loss
+        cql1_scaled_loss = ((torch.logsumexp(cat_q1, dim=1).mean() * self.cql_weight) - q1.mean()) * self.cql_weight
+        cql2_scaled_loss = ((torch.logsumexp(cat_q2, dim=1).mean() * self.cql_weight) - q2.mean()) * self.cql_weight
+        cql_loss = cql1_scaled_loss + cql2_scaled_loss
 
-        q_loss = bellman_error # + cql_loss
+        q_loss = bellman_error + cql_loss
         return q_loss
 
     def get_policy_loss(self, states):

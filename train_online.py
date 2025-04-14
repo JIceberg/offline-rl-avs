@@ -12,9 +12,9 @@ agent = CQLAgent(state_dim, action_dim)
 replay_buffer = ReplayBuffer()
 
 # Training parameters
-num_episodes = 100
+num_episodes = 1000
 max_steps_per_episode = 110
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 NUM_EVAL_TRAJS = 10
 
 # Training loop
@@ -30,7 +30,7 @@ for episode in range(num_episodes):
         total_reward += reward
 
         # Store transition in replay buffer
-        replay_buffer.add(state, action, reward, next_state, done)
+        replay_buffer.add(state, action, reward, next_state, [done])
         
         # Update state
         state = next_state

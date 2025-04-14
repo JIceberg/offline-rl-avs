@@ -18,7 +18,7 @@ class ReplayBuffer:
             torch.FloatTensor(action).to(self.device),
             torch.tensor([reward]).to(self.device),
             torch.FloatTensor(next_state).to(self.device),
-            torch.FloatTensor([done]).to(self.device),
+            torch.FloatTensor(done).to(self.device),
         )
 
         self.position = (self.position + 1) % self.capacity
