@@ -3,15 +3,15 @@ from replay_buffer import ReplayBuffer
 from agent import CQLAgent
 from offline_gym import OfflineRL
 
-with open('offline_dataset.pkl', 'rb') as f:
+with open('expert_dataset.pkl', 'rb') as f:
     data = pickle.load(f)
 
 offline_data = {
     'observations': data['observations'],
-    'next_observations': data['next_observations'],
+    'next_observations': data['next_states'],
     'actions': data['actions'],
     'rewards': data['rewards'],
-    'terminals': data['terminals']
+    'terminals': data['dones']
 }
 
 env = OfflineRL()
@@ -30,14 +30,14 @@ for obs, next_obs, action, reward, terminal in zip(
     replay_buffer.add(obs, action, reward, next_obs, terminal)
 
 NUM_EPISODES = 100
-NUM_STEPS = 1000
+NUM_STEPS = 15000
 NUM_TRAJS = 10
 NUM_TRAJ_STEPS = 110
 BATCH_SIZE = 64
 
 agent = CQLAgent(
-    state_dim=offline_data['observations'][0].shape[0],
-    action_dim=offline_data['actions'][0].shape[0]
+    state_dim=env.observation_space.shape[0],
+    action_dim=env.action_space.shape[0]
 )
 
 for episode in range(NUM_EPISODES):
@@ -64,6 +64,7 @@ for episode in range(NUM_EPISODES):
         for step in range(NUM_TRAJ_STEPS):
             # Select action from the agent
             action = agent.get_action(state, deterministic=True)
+            # print(action)
 
             # Step the environment
             next_state, reward, done, collision = env.step(action)

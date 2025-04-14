@@ -10,25 +10,13 @@ from pathlib import Path
 import random
 
 def get_reward(observation, ego_speed, ego_accel, ego_steer, collision, done, reach):
-    r_terminal = 10 if reach else -5 if done else 0
-    r_collision = -100 if collision else 0
-
-    # min_dist = float('inf')
-    # for i in range(1, len(observation), 4):
-    #     dx, dy = observation[i], observation[i+1]
-    #     dist = (dx**2 + dy**2)**0.5
-    #     min_dist = min(min_dist, dist)
-
-    # r_safety = 0
-    # if min_dist < 3.0:
-    #     r_safety = - (3.0 - min_dist) * 2
-    # elif min_dist > 6.0:
-    #     r_safety = 10
-
+    r_terminal = 2 if reach else 0
+    r_collision = -10 if collision else 0
     r_speed = ego_speed / 20
     r_smooth = -0.1 * abs(ego_accel)
+    r_straight = -0.1 * abs(ego_steer)
 
-    return r_terminal + r_collision + r_speed + r_smooth # + r_safety
+    return r_terminal + r_collision + r_speed + r_smooth + r_straight
 
 def normalize_angle(angle_rad):
     return (angle_rad + np.pi) % (2 * np.pi) - np.pi
@@ -43,7 +31,7 @@ class OfflineRL(gym.Env):
         argoverse_scenario_dir = Path(
             'data_for_simulator/')
         all_scenario_files = sorted(argoverse_scenario_dir.rglob("*.pkl"))
-        scenario_file_lists = (all_scenario_files[:233])
+        scenario_file_lists = (all_scenario_files[:1])
         self.scenarios = []
         for scenario_file_list in scenario_file_lists:
             scenario = pickle.load(open(scenario_file_list, 'rb'))
@@ -85,8 +73,8 @@ class OfflineRL(gym.Env):
                         dtype=np.float32)
 
         self.action_space = spaces.Box(
-            low=np.array([-self.max_a, -np.pi/4], dtype=np.float32),
-            high=np.array([self.max_a, np.pi/4], dtype=np.float32)
+            low=np.array([-self.max_a, -np.pi/2], dtype=np.float32),
+            high=np.array([self.max_a, np.pi/2], dtype=np.float32)
         )
         self.observation_space = spaces.Box(
             low=-high,
@@ -105,7 +93,7 @@ class OfflineRL(gym.Env):
         # find next ego position
         accel, steering_angle = action[0], action[1]
         accel = np.clip(accel, -self.max_a, self.max_a)
-        steering_angle = np.clip(steering_angle, -np.pi/4, np.pi/4)
+        steering_angle = np.clip(steering_angle, -np.pi/2, np.pi/2)
         self.ego_v += accel * self.dt
         self.ego_v = np.clip(self.ego_v, 0, self.max_speed)
         self.ego_yaw += steering_angle * self.dt
@@ -148,7 +136,7 @@ class OfflineRL(gym.Env):
             dist_to_ego = sqrt(x_to_ego ** 2 + y_to_ego ** 2)
 
             # ignore objects far away
-            if abs(x_to_ego) > 20 or abs(y_to_ego) > 20:
+            if abs(x_to_ego) > 30 or abs(y_to_ego) > 30:
                 continue
 
             # front

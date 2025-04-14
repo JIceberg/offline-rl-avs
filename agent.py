@@ -102,6 +102,10 @@ class CQLAgent:
                 noise = 0.1 * torch.randn_like(action).to(self.device)
                 action = torch.clamp(action + noise, -1.0, 1.0)
 
+            action = action.squeeze(0)
+            action[0] *= 2.0
+            action[1] *= np.pi / 2.
+
             return action.squeeze(0).cpu().numpy()
 
     def _compute_policy_values(self, obs_pi, obs_q):
@@ -130,7 +134,7 @@ class CQLAgent:
         q2 = self.q2(states, actions)
         bellman_error = F.mse_loss(q1, target_q) + F.mse_loss(q2, target_q)
 
-        random_actions = torch.FloatTensor(q1.shape[0] * 10, actions.shape[-1]).uniform_(-1, 1).to(self.device)
+        random_actions = torch.FloatTensor(q1.shape[0] * self.num_random_actions, actions.shape[-1]).uniform_(-1, 1).to(self.device)
         num_repeat = int (random_actions.shape[0] / states.shape[0])
         temp_states = states.unsqueeze(1).repeat(1, num_repeat, 1).view(states.shape[0] * num_repeat, states.shape[1])
         temp_next_states = next_states.unsqueeze(1).repeat(1, num_repeat, 1).view(next_states.shape[0] * num_repeat, next_states.shape[1])

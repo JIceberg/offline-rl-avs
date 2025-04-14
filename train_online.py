@@ -30,7 +30,7 @@ for episode in range(num_episodes):
         total_reward += reward
 
         # Store transition in replay buffer
-        replay_buffer.add(state, action, reward, next_state, [done])
+        replay_buffer.add(state, action, [reward], next_state, [done])
         
         # Update state
         state = next_state
@@ -40,10 +40,11 @@ for episode in range(num_episodes):
             batch = replay_buffer.sample(BATCH_SIZE)
             states, actions, rewards, next_states, dones = batch
             agent.update(states, actions, rewards, next_states, dones)
+            print(f"Episode: {episode+1}/{num_episodes}, Step: {step+1}/{max_steps_per_episode}, Q Loss: {agent.q_loss:.4f}, Policy Loss: {agent.policy_loss:.4f}")
                 
         # end if done or if we collided
         if done or collision:
-            print(f"Episode {episode + 1}/{num_episodes} completed in {step + 1} steps with total reward {total_reward}")
+            # print(f"Episode {episode + 1}/{num_episodes} completed in {step + 1} steps with total reward {total_reward}")
             break
 
 # evaluate
@@ -79,8 +80,6 @@ print(f"Average Reward: {avg_reward:.4f}, Crashes: {num_crashes}/{NUM_EVAL_TRAJS
     
 print(len(replay_buffer))
 
-# Save the replay buffer to a file
-with open("expert_dataset.pkl", "wb") as f:
-    pickle.dump(replay_buffer, f)
+replay_buffer.save_to_file("expert_dataset.pkl")
 
 print("Training completed and replay buffer saved to expert_dataset.pkl.")

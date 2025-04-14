@@ -145,9 +145,9 @@ b = rewards.shape[0]
 
 dataset = {}
 dataset['observations'] = observations
-dataset['next_observations'] = next_observations
+dataset['next_states'] = next_observations
 dataset['actions'] = actions
 dataset['rewards'] = rewards
-dataset['terminals'] = terminals
+dataset['dones'] = terminals
 
 pickle.dump(dataset, open('offline_dataset.pkl', 'wb'))

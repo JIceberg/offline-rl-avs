@@ -120,7 +120,7 @@ if __name__ == "__main__":
                 rel_y_to_ego = object_pos_y - ego_car_y
 
                 # ignore if too far away
-                if abs(rel_x_to_ego) > 20 or abs(rel_y_to_ego) > 20:
+                if abs(rel_x_to_ego) > 30 or abs(rel_y_to_ego) > 30:
                     continue
 
                 # front
