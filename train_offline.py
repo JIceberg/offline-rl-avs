@@ -2,6 +2,8 @@ import pickle
 from replay_buffer import ReplayBuffer
 from agent import CQLAgent
 from offline_gym import OfflineRL
+import numpy as np
+import matplotlib.pyplot as plt
 
 with open('expert_dataset.pkl', 'rb') as f:
     data = pickle.load(f)
@@ -40,8 +42,15 @@ agent = CQLAgent(
     action_dim=env.action_space.shape[0]
 )
 
+# Initialize tracking variables
+episode_rewards = []
+q_losses = []
+policy_losses = []
+
 for episode in range(NUM_EPISODES):
     # train
+    episode_q_loss = []
+    episode_policy_loss = []
     for step in range(NUM_STEPS):
         # Sample a batch of data from the replay buffer
         batch = replay_buffer.sample(BATCH_SIZE)
@@ -51,7 +60,8 @@ for episode in range(NUM_EPISODES):
         agent.update(states, actions, rewards, next_states, dones)
 
         print(f"Episode: {episode+1}/{NUM_EPISODES}, Step: {step+1}/{NUM_STEPS}, Q Loss: {agent.q_loss:.4f}, Policy Loss: {agent.policy_loss:.4f}")
-
+        episode_q_loss.append(agent.q_loss)
+        episode_policy_loss.append(agent.policy_loss)
     # eval
     traj_reward = []
     len_traj = []
@@ -84,5 +94,21 @@ for episode in range(NUM_EPISODES):
 
     avg_reward = sum(traj_reward) / len(traj_reward)
     avg_length = sum(len_traj) / len(len_traj)
+
+    q_losses.append(np.mean(episode_q_loss))
+    policy_losses.append(np.mean(episode_policy_loss))
+    episode_rewards.append(avg_reward)
     
     print(f"Episode: {episode+1}/{NUM_EPISODES}, Average Reward: {avg_reward:.4f}, Crashes: {num_crashes}/{NUM_TRAJS}, Average Length: {avg_length:.2f}")
+
+# Plot the losses
+fig, ax = plt.subplots(1,3,figsize=(15,5))
+ax[0].plot(q_losses)
+ax[0].set_xlabel('Episodes')
+ax[0].set_title('Q-Loss')
+ax[1].plot(policy_losses)
+ax[1].set_xlabel('Episodes')
+ax[1].set_title('Policy Loss')
+ax[2].plot(episode_rewards)
+ax[2].set_xlabel('Episodes')
+ax[2].set_title('Rewards')
