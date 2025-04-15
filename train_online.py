@@ -8,7 +8,7 @@ env = OfflineRL()
 state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0]
 print(state_dim, action_dim)
-agent = CQLAgent(state_dim, action_dim)
+agent = CQLAgent(state_dim, action_dim, cql_weight=0, alpha_multiplier=0)
 replay_buffer = ReplayBuffer()
 
 # Training parameters

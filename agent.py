@@ -65,11 +65,11 @@ class CQLAgent:
     def __init__(self,
                  state_dim,
                  action_dim,
-                 lr=3e-4,
+                 lr=1e-4,
                  alpha_multiplier=1.0,
                  gamma=0.99,
                  tau=5e-3,
-                 cql_weight=5.0,
+                 cql_weight=1.0,
                  importance_sampling=True,
                  num_random_actions=10):
 
@@ -138,38 +138,9 @@ class CQLAgent:
         q1_loss = F.mse_loss(q1_pred, target_q)
         q2_loss = F.mse_loss(q2_pred, target_q)
 
-        # repeated_states = states.repeat_interleave(self.num_random_actions, dim=0)
-        # cql_random_actions = torch.FloatTensor(q1_pred.shape[0] * self.num_random_actions, actions.shape[-1]).uniform_(-1, 1).to(self.device)
-        # cql_current_actions, cql_current_log_pis = self.policy(repeated_states)
-        # cql_next_actions, cql_next_log_pis = self.policy(repeated_states)
-        # cql_current_actions, cql_current_log_pis = cql_current_actions.detach(), cql_current_log_pis.detach()
-        # cql_next_actions, cql_next_log_pis = cql_next_actions.detach(), cql_next_log_pis.detach()
-
         random_actions = 2 * (torch.rand_like(actions) - 0.5)
         cql_q1_rand = self.q1(states, random_actions)
         cql_q2_rand = self.q2(states, random_actions)
-        # cql_q1_current_actions = self.q1(repeated_states, cql_current_actions)
-        # cql_q2_current_actions = self.q2(repeated_states, cql_current_actions)
-        # cql_q1_next_actions = self.q1(repeated_states, cql_next_actions)
-        # cql_q2_next_actions = self.q2(repeated_states, cql_next_actions)
-
-        # cql_q1_cat = torch.cat([cql_q1_rand, cql_q1_current_actions, cql_q1_next_actions], dim=1)
-        # cql_q2_cat = torch.cat([cql_q2_rand, cql_q2_current_actions, cql_q2_next_actions], dim=1)
-
-        # if self.importance_sampling:
-        #     random_density = np.log(0.5 ** self.action_dim)
-        #     cql_q1_cat = torch.cat(
-        #         [cql_q1_rand - random_density,
-        #          cql_q1_next_actions - cql_next_log_pis.detach(),
-        #          cql_q1_current_actions - cql_current_log_pis.detach()],
-        #         dim=1
-        #     )
-        #     cql_q2_cat = torch.cat(
-        #         [cql_q2_rand - random_density,
-        #          cql_q2_next_actions - cql_next_log_pis.detach(),
-        #          cql_q2_current_actions - cql_current_log_pis.detach()],
-        #         dim=1
-        #     )
 
         cql_q1_ood = torch.logsumexp(cql_q1_rand, dim=0)
         cql_q2_ood = torch.logsumexp(cql_q2_rand, dim=0)

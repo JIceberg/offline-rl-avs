@@ -11,7 +11,7 @@ import random
 
 def get_reward(observation, ego_speed, ego_accel, ego_steer, collision, done, reach):
     r_terminal = 2 if reach else 0
-    r_collision = -10 if collision else 0
+    r_collision = -20 if collision else 0
     r_speed = ego_speed / 20
     r_smooth = -0.1 * abs(ego_accel)
     r_straight = -0.1 * abs(ego_steer)
@@ -31,7 +31,7 @@ class OfflineRL(gym.Env):
         argoverse_scenario_dir = Path(
             'data_for_simulator/')
         all_scenario_files = sorted(argoverse_scenario_dir.rglob("*.pkl"))
-        scenario_file_lists = (all_scenario_files[:100])
+        scenario_file_lists = (all_scenario_files[:50])
         self.scenarios = []
         for scenario_file_list in scenario_file_lists:
             scenario = pickle.load(open(scenario_file_list, 'rb'))
