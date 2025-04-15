@@ -3,7 +3,7 @@ from replay_buffer import ReplayBuffer
 from agent import CQLAgent
 from offline_gym import OfflineRL
 
-with open('expert_dataset.pkl', 'rb') as f:
+with open('offline_dataset.pkl', 'rb') as f:
     data = pickle.load(f)
 
 offline_data = {
