@@ -5,7 +5,7 @@ from offline_gym import OfflineRL
 import numpy as np
 import matplotlib.pyplot as plt
 
-with open('expert_dataset.pkl', 'rb') as f:
+with open('offline_dataset.pkl', 'rb') as f:
     data = pickle.load(f)
 
 offline_data = {
@@ -37,9 +37,15 @@ NUM_TRAJS = 10
 NUM_TRAJ_STEPS = 110
 BATCH_SIZE = 64
 
+cql_weight = 0.0
+alpha_multiplier = 0.0
 agent = CQLAgent(
     state_dim=env.observation_space.shape[0],
-    action_dim=env.action_space.shape[0]
+    action_dim=env.action_space.shape[0],
+    cql_weight=cql_weight,
+    alpha_multiplier=alpha_multiplier,
+    temperature=1.0,
+    lr=1e-4
 )
 
 # Initialize tracking variables
@@ -112,3 +118,20 @@ ax[1].set_title('Policy Loss')
 ax[2].plot(episode_rewards)
 ax[2].set_xlabel('Episodes')
 ax[2].set_title('Rewards')
+if cql_weight == 0.0 and alpha_multiplier == 0.0:
+    fig.suptitle('QL')
+    fig.savefig('ql_offline.jpg')
+else:
+    fig.suptitle('CQL')
+    fig.savefig('cql_offline.jpg')
+
+results = {}
+results['q_losses'] = q_losses
+results['policy_losses'] = policy_losses
+results['rewards'] = episode_rewards
+if cql_weight == 0.0 and alpha_multiplier == 0.0:
+    with open('ql_results_offline.pkl', 'wb') as f:
+        pickle.dump(results,f)
+else:
+    with open('cql_results_offline.pkl', 'wb') as f:
+        pickle.dump(results,f)

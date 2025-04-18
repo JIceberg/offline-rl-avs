@@ -57,7 +57,8 @@ class PolicyNetwork(nn.Module):
         dist = Normal(mu, std)
         e = dist.rsample().to(state.device)
         action = torch.tanh(e)
-        log_prob = (dist.log_prob(e) - torch.log(1 - action.pow(2) + epsilon)).sum(1, keepdim=True)
+        # log_prob = (dist.log_prob(e) - torch.log(1 - action.pow(2) + epsilon)).sum(1, keepdim=True)
+        log_prob = (dist.log_prob(e) - torch.log(torch.clamp(1 - action.pow(2), min=1e-6))).sum(1, keepdim=True)
 
         return action, log_prob
 
@@ -71,7 +72,9 @@ class CQLAgent:
                  tau=5e-3,
                  cql_weight=1.0,
                  importance_sampling=True,
-                 num_random_actions=10):
+                 num_random_actions=10,
+                 temperature=1.0
+                 ):
 
         # Detect GPU
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -84,12 +87,14 @@ class CQLAgent:
         # CQL multipliers
         self.cql_weight = cql_weight
         self.alpha_multiplier = alpha_multiplier
+        self.temp = temperature
         self.log_alpha = Scalar(0.0).to(self.device)
+        # self.log_cql_alpha = Scalar(np.log(1.0)).to(self.device)
 
         # Number of random actions to sample for the conservative penalty
         self.num_random_actions = num_random_actions
         
-        self.target_entropy = 0.0
+        self.target_entropy = -self.action_dim
         self.importance_sampling = importance_sampling
 
         # Initialize networks
@@ -104,6 +109,7 @@ class CQLAgent:
         self.q2_optim = optim.Adam(self.q2.parameters(), lr=lr)
         self.policy_optim = optim.Adam(self.policy.parameters(), lr=lr)
         self.alpha_optim = optim.Adam(self.log_alpha.parameters(), lr=lr)
+        # self.cql_alpha_optim = optim.Adam(self.log_cql_alpha.parameters(), lr=lr)
 
         # Logging
         self.q_loss = 0
@@ -113,7 +119,7 @@ class CQLAgent:
         """Select action from current policy; add a bit of noise if not deterministic."""
         with torch.no_grad():
             state = torch.FloatTensor(state).unsqueeze(0).to(self.device)
-            action, log_pi = self.policy(state)
+            action, log_pi = self.policy.evaluate(state)
 
             if not deterministic:
                 noise = 0.1 * torch.randn_like(action).to(self.device)
@@ -126,8 +132,9 @@ class CQLAgent:
             return action.squeeze(0).cpu().numpy()
 
     def get_q_loss(self, states, actions, rewards, next_states, dones):
+        batch_size = states.shape[0]
         with torch.no_grad():
-            next_actions, new_log_pi = self.policy(next_states)
+            next_actions, new_log_pi = self.policy.evaluate(next_states)
             next_q1 = self.q1_target(next_states, next_actions)
             next_q2 = self.q2_target(next_states, next_actions)
             next_q = torch.min(next_q1, next_q2)
@@ -138,18 +145,67 @@ class CQLAgent:
         q1_loss = F.mse_loss(q1_pred, target_q)
         q2_loss = F.mse_loss(q2_pred, target_q)
 
-        random_actions = 2 * (torch.rand_like(actions) - 0.5)
-        cql_q1_rand = self.q1(states, random_actions)
-        cql_q2_rand = self.q2(states, random_actions)
+        # CQL Loss computation
+        # current actions
+        with torch.no_grad():
+            current_actions, current_log_pis = self.policy.evaluate(states)
+        q1_current = self.q1(states, current_actions)
+        q2_current = self.q2(states, current_actions)
 
-        cql_q1_ood = torch.logsumexp(cql_q1_rand, dim=0)
-        cql_q2_ood = torch.logsumexp(cql_q2_rand, dim=0)
+        # next actions
+        with torch.no_grad():
+            next_actions, next_log_pis = self.policy.evaluate(next_states)
+        q1_next = self.q1(next_states, next_actions)
+        q2_next = self.q2(next_states, next_actions)
 
-        cql_q1_loss = (cql_q1_ood - q1_pred).mean()
-        cql_q2_loss = (cql_q2_ood - q2_pred).mean()
+        # random actions
+        random_actions = 2 * torch.rand(batch_size * self.num_random_actions, self.action_dim, device=states.device) - 1
+        # random_actions = 2 * (torch.rand_like(actions) - 0.5)
+        states_repeat = states.unsqueeze(1).repeat(1, self.num_random_actions, 1).view(-1, states.shape[-1])
+        q1_rand = self.q1(states_repeat, random_actions)
+        q2_rand = self.q2(states_repeat, random_actions)
 
-        q1_loss += cql_q1_loss * self.cql_weight
-        q2_loss += cql_q2_loss * self.cql_weight
+        # q1_rand = torch.clamp(q1_rand, min=-10., max=10.)
+        # q2_rand = torch.clamp(q2_rand, min=-10., max=10.)
+
+        repeated_q1_current = q1_current.repeat_interleave(self.num_random_actions, dim=0)  
+        repeated_q1_next = q1_next.repeat_interleave(self.num_random_actions, dim=0)
+        repeated_q2_current = q2_current.repeat_interleave(self.num_random_actions, dim=0)  
+        repeated_q2_next = q2_next.repeat_interleave(self.num_random_actions, dim=0)
+        repeated_logpi_current = current_log_pis.repeat_interleave(self.num_random_actions, dim=0)
+        repeated_logpi_next = next_log_pis.repeat_interleave(self.num_random_actions, dim=0)
+
+        random_density = np.log(0.5 ** current_actions.shape[-1])
+        cat_q1 = torch.cat(
+            [q1_rand - random_density, repeated_q1_next - repeated_logpi_next.detach(), repeated_q1_current - repeated_logpi_current.detach()], 1
+        )
+        cat_q2 = torch.cat(
+            [q2_rand - random_density, repeated_q2_next - repeated_logpi_next.detach(), repeated_q2_current - repeated_logpi_current.detach()], 1
+        )
+
+        min_qf1_loss = torch.logsumexp(cat_q1 / self.temp, dim=1,).mean() * self.temp
+        min_qf2_loss = torch.logsumexp(cat_q2 / self.temp, dim=1,).mean() * self.temp
+                    
+        """Subtract the log likelihood of data"""
+        cql_q1_loss = min_qf1_loss - q1_pred.mean() 
+        cql_q2_loss = min_qf2_loss - q2_pred.mean() 
+         # Compute logsumexp properly (per sample)
+        # cql_q1_loss = torch.logsumexp(q1_concat, dim=1).mean() - q1_pred.mean()
+        # cql_q2_loss = torch.logsumexp(q2_concat, dim=1).mean() - q2_pred.mean()
+    
+    
+        # cql_q1_rand = self.q1(states, random_actions)
+        # cql_q2_rand = self.q2(states, random_actions)
+
+        # cql_q1_ood = torch.logsumexp(cql_q1_rand, dim=0)
+        # cql_q2_ood = torch.logsumexp(cql_q2_rand, dim=0)
+
+        # cql_q1_loss = (cql_q1_ood - q1_pred).mean()
+        # cql_q2_loss = (cql_q2_ood - q2_pred).mean()
+        # alpha_cql = self.log_cql_alpha().exp()
+        alpha_cql = self.cql_weight
+        q1_loss += cql_q1_loss * alpha_cql
+        q2_loss += cql_q2_loss * alpha_cql
 
         return q1_loss, q2_loss
 
@@ -158,7 +214,7 @@ class CQLAgent:
         Simple policy loss for CQL:
           maximize Q(s, pi(s)) => minimize -Q(s, pi(s))
         """
-        actions, log_pi = self.policy(states)
+        actions, log_pi = self.policy.evaluate(states)
         q1 = self.q1(states, actions)
         q2 = self.q2(states, actions)
         q_values = torch.min(q1, q2)
@@ -185,11 +241,16 @@ class CQLAgent:
         self.policy_loss = policy_loss.item()
 
         # ---- Update Alpha ----
-        _, log_pi = self.policy(states)
+        _, log_pi = self.policy.evaluate(states)
         alpha_loss = -(self.log_alpha() * (log_pi + self.target_entropy).detach()).mean()
         self.alpha_optim.zero_grad()
         alpha_loss.backward()
         self.alpha_optim.step()
+
+        # cql_alpha_loss = -0.5 * (alpha_cql * (cql_q1_loss - target_cql).detach() + alpha_cql * (cql_q2_loss - target_cql).detach())
+        # self.cql_alpha_optim.zero_grad()
+        # cql_alpha_loss.backward()
+        # self.cql_alpha_optim.step()
 
         # ---- Soft-update target networks ----
         for param, target_param in zip(self.q1.parameters(), self.q1_target.parameters()):
