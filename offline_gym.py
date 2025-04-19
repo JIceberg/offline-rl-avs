@@ -2,7 +2,7 @@ import math
 import gym
 from gym import spaces, logger
 from gym.utils import seeding
-from gym.envs.classic_control import rendering
+# from gym.envs.classic_control import rendering
 import numpy as np
 from math import sqrt
 import pickle
@@ -29,9 +29,9 @@ def object_to_ego(x, y, yaw):
 class OfflineRL(gym.Env):
     def __init__(self):
         argoverse_scenario_dir = Path(
-            'data_for_simulator/')
+            'data_for_simulator/train/')
         all_scenario_files = sorted(argoverse_scenario_dir.rglob("*.pkl"))
-        scenario_file_lists = (all_scenario_files[:50])
+        scenario_file_lists = (all_scenario_files[:10])
         self.scenarios = []
         for scenario_file_list in scenario_file_lists:
             scenario = pickle.load(open(scenario_file_list, 'rb'))

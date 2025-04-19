@@ -88,7 +88,7 @@ class CQLAgent:
         self.cql_weight = cql_weight
         self.alpha_multiplier = alpha_multiplier
         self.temp = temperature
-        self.log_alpha = Scalar(0.0).to(self.device)
+        # self.log_alpha = Scalar(0.0).to(self.device)
         # self.log_cql_alpha = Scalar(np.log(1.0)).to(self.device)
 
         # Number of random actions to sample for the conservative penalty
@@ -108,7 +108,7 @@ class CQLAgent:
         self.q1_optim = optim.Adam(self.q1.parameters(), lr=lr)
         self.q2_optim = optim.Adam(self.q2.parameters(), lr=lr)
         self.policy_optim = optim.Adam(self.policy.parameters(), lr=lr)
-        self.alpha_optim = optim.Adam(self.log_alpha.parameters(), lr=lr)
+        # self.alpha_optim = optim.Adam(self.log_alpha.parameters(), lr=lr)
         # self.cql_alpha_optim = optim.Adam(self.log_cql_alpha.parameters(), lr=lr)
 
         # Logging
@@ -218,8 +218,8 @@ class CQLAgent:
         q1 = self.q1(states, actions)
         q2 = self.q2(states, actions)
         q_values = torch.min(q1, q2)
-        alpha = self.log_alpha().exp() * self.alpha_multiplier
-        policy_loss = (alpha * log_pi - q_values).mean()
+        # alpha = self.log_alpha().exp() * self.alpha_multiplier
+        policy_loss = (self.alpha_multiplier * log_pi - q_values).mean()
         return policy_loss
 
     def update(self, states, actions, rewards, next_states, dones):
@@ -241,11 +241,11 @@ class CQLAgent:
         self.policy_loss = policy_loss.item()
 
         # ---- Update Alpha ----
-        _, log_pi = self.policy.evaluate(states)
-        alpha_loss = -(self.log_alpha() * (log_pi + self.target_entropy).detach()).mean()
-        self.alpha_optim.zero_grad()
-        alpha_loss.backward()
-        self.alpha_optim.step()
+        # _, log_pi = self.policy.evaluate(states)
+        # alpha_loss = -(self.log_alpha() * (log_pi + self.target_entropy).detach()).mean()
+        # self.alpha_optim.zero_grad()
+        # alpha_loss.backward()
+        # self.alpha_optim.step()
 
         # cql_alpha_loss = -0.5 * (alpha_cql * (cql_q1_loss - target_cql).detach() + alpha_cql * (cql_q2_loss - target_cql).detach())
         # self.cql_alpha_optim.zero_grad()

@@ -37,8 +37,8 @@ NUM_TRAJS = 10
 NUM_TRAJ_STEPS = 110
 BATCH_SIZE = 64
 
-cql_weight = 0.0
-alpha_multiplier = 0.0
+cql_weight = 1.0
+alpha_multiplier = 1.0
 agent = CQLAgent(
     state_dim=env.observation_space.shape[0],
     action_dim=env.action_space.shape[0],
