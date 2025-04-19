@@ -9,14 +9,13 @@ import pickle
 from pathlib import Path
 import random
 
-def get_reward(observation, ego_speed, ego_accel, ego_steer, collision, done, reach):
+def get_reward(observation, ego_speed, ego_accel, collision, done, reach):
     r_terminal = 2 if reach else 0
     r_collision = -20 if collision else 0
     r_speed = ego_speed / 20
     r_smooth = -0.1 * abs(ego_accel)
-    r_straight = -0.1 * abs(ego_steer)
 
-    return r_terminal + r_collision + r_speed + r_smooth + r_straight
+    return r_terminal + r_collision + r_speed + r_smooth
 
 def normalize_angle(angle_rad):
     return (angle_rad + np.pi) % (2 * np.pi) - np.pi
@@ -73,8 +72,8 @@ class OfflineRL(gym.Env):
                         dtype=np.float32)
 
         self.action_space = spaces.Box(
-            low=np.array([-self.max_a, -np.pi/2], dtype=np.float32),
-            high=np.array([self.max_a, np.pi/2], dtype=np.float32)
+            low=np.array([-self.max_a], dtype=np.float32),
+            high=np.array([self.max_a], dtype=np.float32)
         )
         self.observation_space = spaces.Box(
             low=-high,
@@ -91,13 +90,13 @@ class OfflineRL(gym.Env):
         reach = 0
 
         # find next ego position
-        accel, steering_angle = action[0], action[1]
+        accel = action[0]
         accel = np.clip(accel, -self.max_a, self.max_a)
-        steering_angle = np.clip(steering_angle, -np.pi/2, np.pi/2)
+        # steering_angle = np.clip(steering_angle, -np.pi/2, np.pi/2)
         self.ego_v += accel * self.dt
         self.ego_v = np.clip(self.ego_v, 0, self.max_speed)
-        self.ego_yaw += steering_angle * self.dt
-        self.ego_yaw = normalize_angle(self.ego_yaw)
+        # self.ego_yaw += angular_velo * self.dt
+        # self.ego_yaw = normalize_angle(self.ego_yaw)
 
         dx = self.ego_v * np.cos(self.ego_yaw) * self.dt
         dy = self.ego_v * np.sin(self.ego_yaw) * self.dt
@@ -277,11 +276,11 @@ class OfflineRL(gym.Env):
             collision = 1
 
         self.time += 1
-        if self.time == len(self.scenario['states']) - 1:
+        if self.time == len(self.scenario['states']):
             done = 1
             reach = 1
 
-        reward = get_reward(observation, self.ego_v, action[0], action[1], collision, done, reach)
+        reward = get_reward(observation, self.ego_v, action[0], collision, done, reach)
         return observation, float(reward), float(done), collision
     
     def _get_initial_state(self):

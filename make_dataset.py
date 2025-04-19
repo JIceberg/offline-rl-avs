@@ -23,7 +23,7 @@ for scenario in scenarios:
     states_of_scenario = scenario['states']
     for i in range(len(states_of_scenario)):
         state = states_of_scenario[i]
-        action = [0, 0]
+        action = [0] # [0, 0]
         done = 0
         reach = 0
 
@@ -118,13 +118,12 @@ for scenario in scenarios:
             ego_heading = ego[2]
 
             action[0] = accel
-            action[1] = ego_heading
         else:
             action = actions[-1]
             done = 1
             reach = 1
 
-        reward = get_reward(observation, ego_v, action[0], action[1], collision, done, reach)
+        reward = get_reward(observation, ego_v, action[0], collision, done, reach)
 
         rewards.append(reward)
         observations.append(observation)

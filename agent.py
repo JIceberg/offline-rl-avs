@@ -125,10 +125,6 @@ class CQLAgent:
                 noise = 0.1 * torch.randn_like(action).to(self.device)
                 action = torch.clamp(action + noise, -1.0, 1.0)
 
-            action = action.squeeze(0)
-            action[0] *= 2.0
-            action[1] *= np.pi / 2.
-
             return action.squeeze(0).cpu().numpy()
 
     def get_q_loss(self, states, actions, rewards, next_states, dones):
@@ -138,7 +134,7 @@ class CQLAgent:
             next_q1 = self.q1_target(next_states, next_actions)
             next_q2 = self.q2_target(next_states, next_actions)
             next_q = torch.min(next_q1, next_q2)
-            target_q = rewards + (1 - dones) * self.gamma * next_q
+            target_q = rewards.unsqueeze(-1) + (1 - dones) * self.gamma * next_q
 
         q1_pred = self.q1(states, actions)
         q2_pred = self.q2(states, actions)
@@ -218,7 +214,7 @@ class CQLAgent:
         q1 = self.q1(states, actions)
         q2 = self.q2(states, actions)
         q_values = torch.min(q1, q2)
-        alpha = self.log_alpha().exp() * self.alpha_multiplier
+        alpha = self.alpha_multiplier
         policy_loss = (alpha * log_pi - q_values).mean()
         return policy_loss
 
