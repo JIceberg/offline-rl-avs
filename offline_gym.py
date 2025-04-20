@@ -365,7 +365,6 @@ class OfflineRL(gym.Env):
         self.time += 1
         if self.time == len(self.scenario['states']):
             done = 1
-            reach = 1
 
         reward = get_reward(observation, self.ego_v, action[0], collision, done, reach)
         return observation, float(reward), float(done), collision
