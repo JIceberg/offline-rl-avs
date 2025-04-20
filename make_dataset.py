@@ -118,6 +118,7 @@ for scenario in scenarios:
             ego_heading = ego[2]
 
             action[0] = accel
+            # action[1] = ego_heading
         else:
             action = actions[-1]
             done = 1
@@ -125,7 +126,7 @@ for scenario in scenarios:
 
         reward = get_reward(observation, ego_v, action[0], collision, done, reach)
 
-        rewards.append(reward)
+        rewards.append([reward])
         observations.append(observation)
         actions.append(action)
         terminals.append([done])

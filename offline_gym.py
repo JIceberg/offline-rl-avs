@@ -10,12 +10,13 @@ from pathlib import Path
 import random
 
 def get_reward(observation, ego_speed, ego_accel, collision, done, reach):
-    r_terminal = 2 if reach else 0
-    r_collision = -20 if collision else 0
+    r_terminal = 10 if reach else 0
+    r_collision = -100 if collision else 0
     r_speed = ego_speed / 20
-    r_smooth = -0.1 * abs(ego_accel)
+    # r_smooth = -0.1 * abs(ego_accel)
 
-    return r_terminal + r_collision + r_speed + r_smooth
+    total_reward = r_terminal + r_collision + r_speed # + r_smooth
+    return float(total_reward) / 20.
 
 def normalize_angle(angle_rad):
     return (angle_rad + np.pi) % (2 * np.pi) - np.pi
@@ -30,7 +31,7 @@ class OfflineRL(gym.Env):
         argoverse_scenario_dir = Path(
             'data_for_simulator/')
         all_scenario_files = sorted(argoverse_scenario_dir.rglob("*.pkl"))
-        scenario_file_lists = (all_scenario_files[:50])
+        scenario_file_lists = (all_scenario_files[:20])
         self.scenarios = []
         for scenario_file_list in scenario_file_lists:
             scenario = pickle.load(open(scenario_file_list, 'rb'))
@@ -43,6 +44,7 @@ class OfflineRL(gym.Env):
         self.v_threshold = 100000
         self.max_speed = 20
         self.max_a = 2
+        self.max_angle = np.pi / 2
         high = np.array([self.v_threshold,
                          self.x_threshold,
                          self.x_threshold,
@@ -91,11 +93,12 @@ class OfflineRL(gym.Env):
 
         # find next ego position
         accel = action[0]
-        accel = np.clip(accel, -self.max_a, self.max_a)
-        # steering_angle = np.clip(steering_angle, -np.pi/2, np.pi/2)
+        accel = np.clip(accel, -1, 1) * self.max_a
+        # steering_angle = action[1]
+        # steering_angle = np.clip(steering_angle, -1, 1) * self.max_angle
         self.ego_v += accel * self.dt
         self.ego_v = np.clip(self.ego_v, 0, self.max_speed)
-        # self.ego_yaw += angular_velo * self.dt
+        # self.ego_yaw = steering_angle
         # self.ego_yaw = normalize_angle(self.ego_yaw)
 
         dx = self.ego_v * np.cos(self.ego_yaw) * self.dt

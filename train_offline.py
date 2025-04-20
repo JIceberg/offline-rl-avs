@@ -32,19 +32,18 @@ for obs, next_obs, action, reward, terminal in zip(
     replay_buffer.add(obs, action, reward, next_obs, terminal)
 
 NUM_EPISODES = 100
-NUM_STEPS = 15000
+NUM_STEPS = 1000
 NUM_TRAJS = 10
 NUM_TRAJ_STEPS = 110
 BATCH_SIZE = 64
 
-cql_weight = 1.0
-alpha_multiplier = 1.0
 agent = CQLAgent(
     state_dim=env.observation_space.shape[0],
     action_dim=env.action_space.shape[0],
-    cql_weight=cql_weight,
-    alpha_multiplier=alpha_multiplier,
+    cql_weight=1.0,
+    alpha_multiplier=0.2,
     temperature=1.0,
+    importance_sampling=True,
     lr=1e-4
 )
 
@@ -55,7 +54,7 @@ ql_agent = CQLAgent(
     action_dim=env.action_space.shape[0],
     cql_weight=0.0,
     alpha_multiplier=0.0,
-    temperature=1.0,
+    temperature=0.0,
     lr=1e-4
 )
 
