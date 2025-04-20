@@ -1,6 +1,6 @@
 # %%
 import pickle
-from offline_gym import OfflineRL
+from offline_gym import OfflineRL, record_gif
 from agent import CQLAgent
 from replay_buffer import ReplayBuffer
 import numpy as np
@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 # Initialize environment, model, and replay buffer
 env = OfflineRL()
 env.reset()
-env.render()
 state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0]
 print(state_dim, action_dim)
