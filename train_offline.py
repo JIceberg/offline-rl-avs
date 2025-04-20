@@ -103,7 +103,7 @@ for episode in range(NUM_EPISODES):
     num_crashes = 0
     ql_num_crashes = 0
     for traj in range(NUM_TRAJS):
-        state, _ = env.reset()
+        state, _ = env.reset(seed=0)
         total_reward = 0
         for step in range(NUM_TRAJ_STEPS):
             # Select actions from the agents
@@ -124,7 +124,7 @@ for episode in range(NUM_EPISODES):
                 traj_reward.append(total_reward)
                 break
         
-        ql_state, _ = env.reset()
+        ql_state, _ = env.reset(seed=0)
         ql_total_reward = 0
         for step in range(NUM_TRAJ_STEPS):
             ql_action = ql_agent.get_action(ql_state, deterministic=True)

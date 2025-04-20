@@ -170,8 +170,12 @@ class OfflineRL(gym.Env):
         # steering_angle = np.clip(steering_angle, -1, 1) * self.max_angle
         self.ego_v += accel * self.dt
         self.ego_v = np.clip(self.ego_v, 0, self.max_speed)
-        self.ego_yaw = self.ego_track.object_states[self.time].heading
-        self.ego_yaw = normalize_angle(self.ego_yaw)
+
+        dist_traveled = self.ego_v * self.dt
+        self._s_arc = min(self._path_len, self._s_arc + dist_traveled)
+        # interpolate and set heading from path
+        interp_heading = np.interp(self._s_arc, self._s_vals, self._headings_unwrapped)
+        self.ego_yaw = normalize_angle(interp_heading)
 
         dx = self.ego_v * np.cos(self.ego_yaw) * self.dt
         dy = self.ego_v * np.sin(self.ego_yaw) * self.dt
@@ -391,6 +395,16 @@ class OfflineRL(gym.Env):
         self.ego_v = sqrt(self.ego_track.object_states[0].velocity[0] ** 2 +
                           self.ego_track.object_states[0].velocity[1] ** 2)
 
+        ego_states = self.ego_track.object_states
+        xs = np.array([s.position[0] for s in ego_states], dtype=np.float32)
+        ys = np.array([s.position[1] for s in ego_states], dtype=np.float32)
+        deltas = np.sqrt(np.diff(xs)**2 + np.diff(ys)**2)
+        self._s_vals = np.concatenate(([0.0], np.cumsum(deltas)))
+        headings = np.array([s.heading for s in ego_states], dtype=np.float32)
+        self._headings_unwrapped = np.unwrap(headings)
+        self._path_len = float(self._s_vals[-1])
+        self._s_arc = 0.0
+
         self.time = 0
         self.viewer = None
         self.steps_beyond_done = None
@@ -437,7 +451,6 @@ class OfflineRL(gym.Env):
         ax.add_patch(rect)
 
     def render(self, mode='human'):
-        
         if not hasattr(self, 'fig') or not hasattr(self, 'ax'):
             matplotlib.use('Agg')
             plt.ioff()
@@ -509,25 +522,6 @@ class OfflineRL(gym.Env):
                     hx, hy = self.transform_point(x, y, 4, offset * 1, yaw)
                     self.ax.add_patch(Circle((hx, hy), 0.3, color='yellow'))
 
-                # self.draw_tail_light_bar(self.ax, x, y, yaw)
-
-        # Draw ego vehicle
-        # ego_rect = Rectangle(
-        #     (self.ego_x - 2, self.ego_y - 4), 4, 8,
-        #     angle=np.degrees(self.ego_yaw),
-        #     color='red',
-        #     alpha=1.0,
-        #     zorder=4
-        # )
-        # self.ax.add_patch(ego_rect)
-        # Pull ego state at current time
-        # import pdb;pdb.set_trace()
-        # if self.time < len(self.ego_track.object_states):
-        #     ego_state = self.ego_track.object_states[self.time]
-        #     self.ego_x, self.ego_y = ego_state.position
-        #     self.ego_yaw = ego_state.heading
-        #     self.ego_v = ego_state.velocity
-
         self.draw_vehicle(self.ax, self.ego_x, self.ego_y, self.ego_yaw, color='red', alpha=1.0, zorder=4)
 
         # Ego headlights (white/yellow)
@@ -568,117 +562,3 @@ class OfflineRL(gym.Env):
             except:
                 pass
             return None
-
-
-    # def render(self, mode='human'):
-    #     # Initialize figure if needed
-    #     if not hasattr(self, 'fig') or not hasattr(self, 'ax'):
-    #         import matplotlib
-    #         matplotlib.use('Agg')  # Use non-interactive backend
-    #         plt.ioff()  # Turn off interactive mode
-    #         self.fig, self.ax = plt.subplots(figsize=(10, 6))
-    #         plt.axis('off')
-    #         self.fig.tight_layout(pad=0)
-        
-    #     self.ax.clear()
-        
-    #     # Set view limits (ego-centric view)
-    #     view_distance = 50
-    #     self.ax.set_xlim(self.ego_x - view_distance, self.ego_x + view_distance)
-    #     self.ax.set_ylim(self.ego_y - view_distance/2, self.ego_y + view_distance/2)
-    #     self.ax.set_aspect('equal')
-        
-    #     # Draw road background
-    #     self.ax.add_patch(Rectangle(
-    #         (self.ego_x - view_distance, self.ego_y - view_distance/2),
-    #         view_distance * 2, view_distance,
-    #         color='lightgray'
-    #     ))
-        
-    #     # Draw lane markings
-    #     lane_width = 3.7
-    #     for i in [-1, 0, 1]:
-    #         self.ax.plot(
-    #             [self.ego_x - view_distance, self.ego_x + view_distance],
-    #             [self.ego_y + i * lane_width, self.ego_y + i * lane_width],
-    #             'w--', linewidth=1, alpha=0.5
-    #         )
-        
-    #     # Draw other vehicles with direction indicators
-    #     for obj in self.object_tracks:
-    #         if self.time < len(obj.object_states):
-    #             state = obj.object_states[self.time]
-    #             pos = state.position
-    #             yaw = state.heading
-                
-    #             # Vehicle body
-    #             obj_rect = Rectangle(
-    #                 (pos[0] - 2, pos[1] - 4), 4, 8,
-    #                 angle=np.degrees(yaw),
-    #                 color='blue',
-    #                 alpha=0.8
-    #             )
-    #             self.ax.add_patch(obj_rect)
-                
-    #             # Direction indicator (front arrow)
-    #             arrow_length = 5
-    #             front_x = pos[0] + arrow_length * np.cos(yaw)
-    #             front_y = pos[1] + arrow_length * np.sin(yaw)
-    #             self.ax.arrow(
-    #                 pos[0], pos[1],
-    #                 front_x - pos[0], front_y - pos[1],
-    #                 head_width=1, head_length=2,
-    #                 fc='yellow', ec='black', linewidth=1
-    #             )
-        
-    #     # Draw ego vehicle with enhanced direction indicator
-    #     ego_rect = Rectangle(
-    #         (self.ego_x - 2, self.ego_y - 4), 4, 8,
-    #         angle=np.degrees(self.ego_yaw),
-    #         color='red',
-    #         alpha=1.0
-    #     )
-    #     self.ax.add_patch(ego_rect)
-        
-    #     # Enhanced ego direction indicator
-    #     ego_arrow_length = 6
-    #     ego_front_x = self.ego_x + ego_arrow_length * np.cos(self.ego_yaw)
-    #     ego_front_y = self.ego_y + ego_arrow_length * np.sin(self.ego_yaw)
-    #     self.ax.arrow(
-    #         self.ego_x, self.ego_y,
-    #         ego_front_x - self.ego_x, ego_front_y - self.ego_y,
-    #         head_width=1.5, head_length=3,
-    #         fc='white', ec='black', linewidth=2
-    #     )
-        
-    #     # Improved info display
-    #     info_text = (
-    #         f"Time: {self.time*self.dt:.1f}s\n"
-    #         f"Speed: {self.ego_v:.1f}m/s\n"
-    #         f"Position: ({self.ego_x:.1f}, {self.ego_y:.1f})"
-    #     )
-    #     self.ax.text(
-    #         0.02, 0.98, info_text,
-    #         transform=self.ax.transAxes,
-    #         verticalalignment='top',
-    #         bbox=dict(facecolor='white', alpha=0.7, edgecolor='black'),
-    #         fontsize=10
-    #     )
-        
-    #     if mode == 'rgb_array':
-    #         try:
-    #             self.fig.canvas.draw()
-    #             width, height = self.fig.canvas.get_width_height()
-    #             img = np.frombuffer(self.fig.canvas.tostring_rgb(), dtype=np.uint8)
-    #             img = img.reshape(height, width, 3)
-    #             return img
-    #         except:
-    #             return np.zeros((height, width, 3), dtype=np.uint8)
-    #     elif mode == 'human':
-    #         try:
-    #             plt.draw()
-    #             plt.pause(0.01)
-    #         except:
-    #             pass
-    #         return None
-
