@@ -173,16 +173,11 @@ class OfflineRL(gym.Env):
 
         dist_traveled = self.ego_v * self.dt
         self._s_arc = min(self._path_len, self._s_arc + dist_traveled)
+        interp_heading = np.interp(self._s_arc, self._s_vals, self._headings_unwrapped)
         if self._s_arc >= self._path_len:
             self._s_arc = self._path_len
-            # take the last heading
-            last_heading = normalize_angle(self._heading_interp(self._path_len))
-            self.ego_yaw = last_heading
-            # and mark done/reach so the episode ends
             done = 1
             reach = 1
-        # interpolate and set heading from path
-        interp_heading = np.interp(self._s_arc, self._s_vals, self._headings_unwrapped)
         self.ego_yaw = normalize_angle(interp_heading)
 
         dx = self.ego_v * np.cos(self.ego_yaw) * self.dt
