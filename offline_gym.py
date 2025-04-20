@@ -31,7 +31,7 @@ class OfflineRL(gym.Env):
         argoverse_scenario_dir = Path(
             'data_for_simulator/')
         all_scenario_files = sorted(argoverse_scenario_dir.rglob("*.pkl"))
-        scenario_file_lists = (all_scenario_files[:20])
+        scenario_file_lists = (all_scenario_files[:200])
         self.scenarios = []
         for scenario_file_list in scenario_file_lists:
             scenario = pickle.load(open(scenario_file_list, 'rb'))
@@ -86,6 +86,7 @@ class OfflineRL(gym.Env):
 
     def seed(self, seed=None):
         self.np_random, _ = seeding.np_random(seed)
+        random.seed(seed)
 
     def step(self, action):
         done = 0
@@ -305,6 +306,9 @@ class OfflineRL(gym.Env):
         return observation
 
     def reset(self, *, seed=None, options=None):
+        if seed is not None:
+            self.seed(seed)
+
         self.scenario = random.choice(self.scenarios)
         self.ego_track = self.scenario['EGO']
         self.object_tracks = self.scenario['others']

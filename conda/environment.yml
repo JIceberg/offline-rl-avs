@@ -20,6 +20,7 @@ dependencies:
   - polars
   - pyarrow
   - pyproj
+  - imageio
   - rich
   - rust
   - scipy

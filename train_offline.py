@@ -19,6 +19,8 @@ offline_data = {
 env = OfflineRL()
 env.reset()
 
+env.seed(0)
+
 # Assuming ReplayBuffer is already defined and initialized
 replay_buffer = ReplayBuffer()
 
@@ -33,7 +35,7 @@ for obs, next_obs, action, reward, terminal in zip(
 
 NUM_EPISODES = 100
 NUM_STEPS = 1000
-NUM_TRAJS = 10
+NUM_TRAJS = 5
 NUM_TRAJ_STEPS = 110
 BATCH_SIZE = 64
 
@@ -41,7 +43,7 @@ agent = CQLAgent(
     state_dim=env.observation_space.shape[0],
     action_dim=env.action_space.shape[0],
     cql_weight=1.0,
-    alpha_multiplier=0.2,
+    alpha_multiplier=1.0,
     temperature=1.0,
     importance_sampling=True,
     q_lr=1e-4,

@@ -47,9 +47,9 @@ class PolicyNetwork(nn.Module):
         dist = Normal(mu, std)
         e = dist.rsample().to(state.device)
         action = torch.tanh(e)
-        # log_prob = (dist.log_prob(e) - \
-        #             torch.log((1 - action.pow(2)) + epsilon))
-        log_prob = (dist.log_prob(e) - torch.log(torch.clamp(1 - action.pow(2), min=epsilon))).sum(1, keepdim=True)
+        log_prob = (dist.log_prob(e) - \
+                    torch.log((1 - action.pow(2)) + epsilon))
+        # log_prob = (dist.log_prob(e) - torch.log(torch.clamp(1 - action.pow(2), min=epsilon))).sum(1, keepdim=True)
         log_prob = log_prob.sum(1, keepdim=True)
 
         return action, log_prob
