@@ -115,6 +115,29 @@ class CQLAgent:
         self.q_loss = 0
         self.policy_loss = 0
 
+    def save(self, filepath):
+        torch.save({
+            'q1': self.q1.state_dict(),
+            'q2': self.q2.state_dict(),
+            'q1_target': self.q1_target.state_dict(),
+            'q2_target': self.q2_target.state_dict(),
+            'policy': self.policy.state_dict(),
+            'q1_optim': self.q1_optim.state_dict(),
+            'q2_optim': self.q2_optim.state_dict(),
+            'policy_optim': self.policy_optim.state_dict(),
+        }, filepath)
+
+    def load(self, filepath):
+        checkpoint = torch.load(filepath)
+        self.q1.load_state_dict(checkpoint['q1'])
+        self.q2.load_state_dict(checkpoint['q2'])
+        self.q1_target.load_state_dict(checkpoint['q1_target'])
+        self.q2_target.load_state_dict(checkpoint['q2_target'])
+        self.policy.load_state_dict(checkpoint['policy'])
+        self.q1_optim.load_state_dict(checkpoint['q1_optim'])
+        self.q2_optim.load_state_dict(checkpoint['q2_optim'])
+        self.policy_optim.load_state_dict(checkpoint['policy_optim'])
+
     def get_action(self, state, deterministic=False):
         """Select action from current policy; add a bit of noise if not deterministic."""
         with torch.no_grad():

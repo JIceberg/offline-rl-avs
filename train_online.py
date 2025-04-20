@@ -74,6 +74,15 @@ ax[1].set_title('Policy Loss')
 ax[2].plot(episode_rewards)
 ax[2].set_xlabel('Episodes')
 ax[2].set_title('Rewards')
+fig.suptitle('QL')
+fig.savefig('ql.jpg')
+
+results = {}
+results['q_losses'] = q_losses
+results['policy_losses'] = policy_losses
+results['rewards'] = episode_rewards
+with open('ql_results.pkl', 'wb') as f:
+    pickle.dump(results,f)
 
 # evaluate
 traj_reward = []

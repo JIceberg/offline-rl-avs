@@ -7,7 +7,7 @@ from offline_gym import get_reward
 argoverse_scenario_dir = Path(
         'data_for_simulator/train/')
 all_scenario_files = sorted(argoverse_scenario_dir.rglob("*.pkl"))
-scenario_file_lists = (all_scenario_files[:10])
+scenario_file_lists = (all_scenario_files[:50])
 scenarios = []
 for scenario_file_list in scenario_file_lists:
     scenario = pickle.load(open(scenario_file_list, 'rb'))
