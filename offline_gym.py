@@ -98,8 +98,8 @@ class OfflineRL(gym.Env):
         # steering_angle = np.clip(steering_angle, -1, 1) * self.max_angle
         self.ego_v += accel * self.dt
         self.ego_v = np.clip(self.ego_v, 0, self.max_speed)
-        # self.ego_yaw = steering_angle
-        # self.ego_yaw = normalize_angle(self.ego_yaw)
+        self.ego_yaw = self.ego_track.object_states[self.time].heading
+        self.ego_yaw = normalize_angle(self.ego_yaw)
 
         dx = self.ego_v * np.cos(self.ego_yaw) * self.dt
         dy = self.ego_v * np.sin(self.ego_yaw) * self.dt

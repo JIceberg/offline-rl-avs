@@ -58,7 +58,8 @@ class CQLAgent:
     def __init__(self,
                  state_dim,
                  action_dim,
-                 lr=1e-4,
+                 q_lr=1e-4,
+                 policy_lr=1e-4,
                  alpha_multiplier=1.0,
                  gamma=0.99,
                  tau=5e-3,
@@ -96,10 +97,10 @@ class CQLAgent:
         self.policy = PolicyNetwork(state_dim, action_dim).to(self.device)
 
         # Initialize optimizers
-        self.q1_optim = optim.Adam(self.q1.parameters(), lr=lr)
-        self.q2_optim = optim.Adam(self.q2.parameters(), lr=lr)
-        self.policy_optim = optim.Adam(self.policy.parameters(), lr=lr)
-        self.alpha_optim = optim.Adam([self.log_alpha], lr=lr)
+        self.q1_optim = optim.Adam(self.q1.parameters(), lr=q_lr)
+        self.q2_optim = optim.Adam(self.q2.parameters(), lr=q_lr)
+        self.policy_optim = optim.Adam(self.policy.parameters(), lr=policy_lr)
+        self.alpha_optim = optim.Adam([self.log_alpha], lr=policy_lr)
         # self.cql_alpha_optim = optim.Adam(self.log_cql_alpha.parameters(), lr=lr)
 
         # Logging

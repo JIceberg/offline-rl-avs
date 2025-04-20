@@ -133,7 +133,7 @@ for scenario in scenarios:
 
 for i in range(1, len(observations)):
     next_observations.append(observations[i])
-next_observations.append(observations[0])
+next_observations.append(observations[-1])
 
 observations = np.array(observations, dtype='float32')
 next_observations = np.array(next_observations, dtype='float32')

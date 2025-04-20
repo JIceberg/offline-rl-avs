@@ -44,7 +44,8 @@ agent = CQLAgent(
     alpha_multiplier=0.2,
     temperature=1.0,
     importance_sampling=True,
-    lr=1e-4
+    q_lr=1e-4,
+    policy_lr=1e-5,
 )
 
 print(agent.state_dim, agent.action_dim)
@@ -54,8 +55,8 @@ ql_agent = CQLAgent(
     action_dim=env.action_space.shape[0],
     cql_weight=0.0,
     alpha_multiplier=0.0,
-    temperature=0.0,
-    lr=1e-4
+    q_lr=1e-4,
+    policy_lr=1e-5
 )
 
 # Initialize tracking variables
