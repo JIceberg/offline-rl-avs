@@ -1,9 +1,11 @@
+# %%
 import pickle
 from replay_buffer import ReplayBuffer
 from agent import CQLAgent
 from offline_gym import OfflineRL
 import numpy as np
 import matplotlib.pyplot as plt
+from offline_gym import record_gif
 
 with open('offline_dataset.pkl', 'rb') as f:
     data = pickle.load(f)
@@ -33,12 +35,24 @@ for obs, next_obs, action, reward, terminal in zip(
 ):
     replay_buffer.add(obs, action, reward, next_obs, terminal)
 
+<<<<<<< HEAD
 NUM_EPISODES = 100
 NUM_STEPS = 1000
 NUM_TRAJS = 5
 NUM_TRAJ_STEPS = 110
 BATCH_SIZE = 64
 
+=======
+# %%
+NUM_EPISODES = 3
+NUM_STEPS = 15000
+NUM_TRAJS = 10
+NUM_TRAJ_STEPS = 110
+BATCH_SIZE = 64
+
+cql_weight = 1.0
+alpha_multiplier = 1.0
+>>>>>>> repo/anjali
 agent = CQLAgent(
     state_dim=env.observation_space.shape[0],
     action_dim=env.action_space.shape[0],
@@ -151,11 +165,36 @@ for episode in range(NUM_EPISODES):
     q_losses.append(np.mean(episode_q_loss))
     policy_losses.append(np.mean(episode_policy_loss))
     episode_rewards.append(avg_reward)
+<<<<<<< HEAD
+=======
+<<<<<<< Updated upstream
+    
+    print(f"Episode: {episode+1}/{NUM_EPISODES}, Average Reward: {avg_reward:.4f}, Crashes: {num_crashes}/{NUM_TRAJS}, Average Length: {avg_length:.2f}")
+>>>>>>> repo/anjali
 
     ql_q_losses.append(np.mean(ql_episode_q_loss))
     ql_policy_losses.append(np.mean(ql_episode_policy_loss))
     ql_episode_rewards.append(ql_avg_reward)
 
+<<<<<<< HEAD
+=======
+results = {}
+results['q_losses'] = q_losses
+results['policy_losses'] = policy_losses
+results['rewards'] = episode_rewards
+if cql_weight == 0.0 and alpha_multiplier == 0.0:
+    with open('ql_results_offline.pkl', 'wb') as f:
+        pickle.dump(results,f)
+else:
+    with open('cql_results_offline.pkl', 'wb') as f:
+        pickle.dump(results,f)
+=======
+
+    ql_q_losses.append(np.mean(ql_episode_q_loss))
+    ql_policy_losses.append(np.mean(ql_episode_policy_loss))
+    ql_episode_rewards.append(ql_avg_reward)
+
+>>>>>>> repo/anjali
     print(f"Episode: {episode+1}/{NUM_EPISODES}, Agent Avg Reward: {avg_reward:.4f}, Crashes: {num_crashes}/{NUM_TRAJS}, Avg Length: {avg_length:.2f}")
     print(f"Episode: {episode+1}/{NUM_EPISODES}, QL Agent Avg Reward: {ql_avg_reward:.4f}, Crashes: {ql_num_crashes}/{NUM_TRAJS}, Avg Length: {ql_avg_length:.2f}")
 
@@ -183,6 +222,22 @@ ax[0, 2].legend()
 fig.suptitle('CQL vs QL Comparison')
 fig.savefig('cql_vs_ql_comparison.jpg')
 
+<<<<<<< HEAD
+=======
+#%%
+# make the simulation video 
+record_gif(
+    env,
+    agent,
+    'cql_agent_test.gif',
+)
+
+record_gif(
+    env,
+    ql_agent,
+    'ql_agent_test.gif',
+)
+>>>>>>> repo/anjali
 # Save results for both agents
 results = {
     'cql': {
@@ -197,4 +252,52 @@ results = {
     }
 }
 with open('cql_vs_ql_results.pkl', 'wb') as f:
+<<<<<<< HEAD
     pickle.dump(results, f)
+=======
+    pickle.dump(results, f)
+
+# save the agent weights
+agent.save('cql_agent_weights_test.pth')
+ql_agent.save('ql_agent_weights_test.pth')
+
+# %%
+cql_weight = 1.0
+alpha_multiplier = 1.0
+agent = CQLAgent(
+    state_dim=env.observation_space.shape[0],
+    action_dim=env.action_space.shape[0],
+    cql_weight=cql_weight,
+    alpha_multiplier=alpha_multiplier,
+    temperature=1.0,
+    lr=1e-4
+)
+
+print(agent.state_dim, agent.action_dim)
+
+ql_agent = CQLAgent(
+    state_dim=env.observation_space.shape[0],
+    action_dim=env.action_space.shape[0],
+    cql_weight=0.0,
+    alpha_multiplier=0.0,
+    temperature=1.0,
+    lr=1e-4
+)
+
+agent.load('cql_agent_weights_test.pth')
+ql_agent.load('ql_agent_weights_test.pth')
+
+record_gif(
+    env,
+    agent,
+    'cql_agent_test.gif',
+)
+
+record_gif(
+    env,
+    ql_agent,
+    'ql_agent_test.gif',
+)
+# %%
+>>>>>>> Stashed changes
+>>>>>>> repo/anjali
