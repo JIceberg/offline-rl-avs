@@ -101,7 +101,7 @@ class OfflineRL(gym.Env):
         argoverse_scenario_dir = Path(
             'data_for_simulator/train/')
         all_scenario_files = sorted(argoverse_scenario_dir.rglob("*.pkl"))
-        scenario_file_lists = (all_scenario_files[:20])
+        scenario_file_lists = (all_scenario_files[:100])
         self.scenarios = []
         for scenario_file_list in scenario_file_lists:
             scenario = pickle.load(open(scenario_file_list, 'rb'))
@@ -451,118 +451,189 @@ class OfflineRL(gym.Env):
             plt.axis('off')
             self.fig.tight_layout(pad=0)
 
-        self.ax.clear()
+        # self.ax.clear()
 
-        # View window
-        view_distance = 50
-        self.ax.set_xlim(-view_distance, view_distance)
-        self.ax.set_ylim(-view_distance / 2, view_distance / 2)
-        self.ax.set_aspect('equal')
-        # self.ax.set_xlim(self.ego_x - view_distance, self.ego_x + view_distance)
-        # self.ax.set_ylim(self.ego_y - view_distance / 2, self.ego_y + view_distance / 2)
-
-        # Road drawing - rotated to match ego vehicle's orientation
-        road_length = 100  # Total length of visible road
-        road_width = 40    # Total width of visible road
+        # # View window
+        # view_distance = 50
+        # self.ax.set_xlim(-view_distance, view_distance)
+        # self.ax.set_ylim(-view_distance / 2, view_distance / 2)
+        # self.ax.set_aspect('equal')
         
-        # Road corners in ego-aligned coordinates (before rotation)
-        road_half_length = road_length / 2
-        road_half_width = road_width / 2
-        road_corners_local = np.array([
-            [-road_half_length, -road_half_width],
-            [ road_half_length, -road_half_width],
-            [ road_half_length,  road_half_width],
-            [-road_half_length,  road_half_width]
-        ])
-        # Rotate road according to ego yaw
-        rotation_matrix = np.array([
-            [np.cos(self.ego_yaw), -np.sin(self.ego_yaw)],
-            [np.sin(self.ego_yaw),  np.cos(self.ego_yaw)]
-        ])
-        road_corners_rotated = road_corners_local @ rotation_matrix.T
+        # # Road drawing - rotated to match ego vehicle's orientation
+        # road_length = 100  # Total length of visible road
+        # road_width = 40    # Total width of visible road
         
-        # Create road polygon
-        road_poly = Polygon(road_corners_rotated, color='lightgray', zorder=0)
-        self.ax.add_patch(road_poly)
-        # Lane markings (rotated to match ego orientation)
-        lane_width = 3.7
-        for lane_offset in [-lane_width, 0, lane_width]:
-            # Create lane segment in local coordinates
-            lane_x = np.array([-road_half_length, road_half_length])
-            lane_y = np.array([lane_offset, lane_offset])
+        # # Road corners in ego-aligned coordinates (before rotation)
+        # road_half_length = road_length / 2
+        # road_half_width = road_width / 2
+        # road_corners_local = np.array([
+        #     [-road_half_length, -road_half_width],
+        #     [ road_half_length, -road_half_width],
+        #     [ road_half_length,  road_half_width],
+        #     [-road_half_length,  road_half_width]
+        # ])
+        # # Rotate road according to ego yaw
+        # rotation_matrix = np.array([
+        #     [np.cos(self.ego_yaw), -np.sin(self.ego_yaw)],
+        #     [np.sin(self.ego_yaw),  np.cos(self.ego_yaw)]
+        # ])
+        # road_corners_rotated = road_corners_local @ rotation_matrix.T
+        
+        # # Create road polygon
+        # road_poly = Polygon(road_corners_rotated, color='lightgray', zorder=0)
+        # self.ax.add_patch(road_poly)
+        # # Lane markings (rotated to match ego orientation)
+        # lane_width = 3.7
+        # for lane_offset in [-lane_width, 0, lane_width]:
+        #     # Create lane segment in local coordinates
+        #     lane_x = np.array([-road_half_length, road_half_length])
+        #     lane_y = np.array([lane_offset, lane_offset])
             
-            # Rotate lane markings
-            lane_points = np.column_stack((lane_x, lane_y)) @ rotation_matrix.T
-            self.ax.plot(lane_points[:,0], lane_points[:,1], 'w--', linewidth=1, alpha=0.5, zorder=1)
+        #     # Rotate lane markings
+        #     lane_points = np.column_stack((lane_x, lane_y)) @ rotation_matrix.T
+        #     self.ax.plot(lane_points[:,0], lane_points[:,1], 'w--', linewidth=1, alpha=0.5, zorder=1)
         
+        # Clear axis and set view (in world coordinates)
+        self.ax.clear()
+        self.ax.set_xlim(self.ego_x - 50, self.ego_x + 50)
+        self.ax.set_ylim(self.ego_y - 25, self.ego_y + 25)
+        self.ax.set_aspect('equal')
 
-        # Draw other vehicles
+        # Draw road (in world coordinates, fixed)
+        road_length = 100
+        road_width = 40
+        road_corners = [
+            [self.ego_x - road_length/2, self.ego_y - road_width/2],
+            [self.ego_x + road_length/2, self.ego_y - road_width/2],
+            [self.ego_x + road_length/2, self.ego_y + road_width/2],
+            [self.ego_x - road_length/2, self.ego_y + road_width/2]
+        ]
+        road_poly = Polygon(road_corners, color='lightgray', zorder=0)
+        self.ax.add_patch(road_poly)
+
+
+
+        # Create rotation matrix for ego yaw
+        cos_yaw = np.cos(self.ego_yaw)
+        sin_yaw = np.sin(self.ego_yaw)
+        rotation_matrix = np.array([[cos_yaw, -sin_yaw],
+                                [sin_yaw, cos_yaw]])
+        lane_width = 3.7
+        dash_length = 3
+        gap_length = 3
+        # Draw lane markings (in world coordinates)
+        for lane_offset in [-lane_width, 0, lane_width]:
+            # Create dashed line segments
+            num_segments = int(road_length/(dash_length + gap_length))
+            for i in range(-num_segments//2, num_segments//2 + 1):
+                start_x = i * (dash_length + gap_length)
+                end_x = start_x + dash_length
+                
+                # Only draw if within visible area
+                if abs(start_x) < road_length/2 and abs(end_x) < road_length/2:
+                    # Create segment in local coordinates
+                    segment = np.array([
+                        [start_x, lane_offset],
+                        [end_x, lane_offset]
+                    ])
+                    # Rotate segment
+                    rotated_segment = segment @ rotation_matrix.T
+                    self.ax.plot(rotated_segment[:,0], rotated_segment[:,1],
+                                'w-', linewidth=1.5, alpha=0.8, zorder=1)
+
+        # Draw other vehicles (in world coordinates)
         for obj in self.object_tracks:
             if self.time < len(obj.object_states):
                 state = obj.object_states[self.time]
                 x, y = state.position
                 yaw = state.heading
-                vx, vy = state.velocity
+                
+                # Draw vehicle with world coordinates
+                self.draw_vehicle(self.ax, x, y, yaw, color='blue', alpha=0.9, zorder=3)
+                
+                # Direction arrow
+                arrow_length = 3.0
+                self.ax.arrow(
+                    x, y,
+                    arrow_length * np.cos(yaw),
+                    arrow_length * np.sin(yaw),
+                    color='green', width=0.2, zorder=4
+                )
+        # Draw ego vehicle (in world coordinates with actual yaw)
+        self.draw_vehicle(self.ax, self.ego_x, self.ego_y, self.ego_yaw, color='red', alpha=1.0, zorder=4)
+        
+        # Ego direction arrow
+        self.ax.arrow(
+            self.ego_x, self.ego_y,
+            3 * np.cos(self.ego_yaw),
+            3 * np.sin(self.ego_yaw),
+            color='green', width=0.2, zorder=5
+        )
+        # # Draw other vehicles
+        # for obj in self.object_tracks:
+        #     if self.time < len(obj.object_states):
+        #         state = obj.object_states[self.time]
+        #         x, y = state.position
+        #         yaw = state.heading
+        #         vx, vy = state.velocity
 
-                relative_yaw = (yaw - self.ego_yaw + np.pi) % (2 * np.pi) - np.pi
+        #         relative_yaw = (yaw - self.ego_yaw + np.pi) % (2 * np.pi) - np.pi
 
-                # Determine if vehicle is moving forward or backward based on velocity
-                local_vx = vx * np.cos(yaw) + vy * np.sin(yaw)
-                is_moving_forward = local_vx >= 0  # Assuming positive velocity means forward
-                # Place headlights - front if moving forward, back if moving backward
-                headlight_x_local = 2.25 if is_moving_forward else -2.25
-                headlight_y_local = 0.8
+        #         # Determine if vehicle is moving forward or backward based on velocity
+        #         local_vx = vx * np.cos(yaw) + vy * np.sin(yaw)
+        #         is_moving_forward = local_vx >= 0  # Assuming positive velocity means forward
+        #         # Place headlights - front if moving forward, back if moving backward
+        #         headlight_x_local = 2.25 if is_moving_forward else -2.25
+        #         headlight_y_local = 0.8
 
-                ex, ey = self.world_to_ego(x, y)
+        #         ex, ey = self.world_to_ego(x, y)
 
-                # Display distance on vehicle
-                # self.ax.text(
-                #     x, y,
-                #     f"{distance:.1f} m",
-                #     color='white',
-                #     fontsize=8,
-                #     ha='center',
-                #     va='center',
-                #     zorder=6,
-                #     bbox=dict(facecolor='black', alpha=0.5, boxstyle='round,pad=0.2')
-                # )
+        #         # Display distance on vehicle
+        #         # self.ax.text(
+        #         #     x, y,
+        #         #     f"{distance:.1f} m",
+        #         #     color='white',
+        #         #     fontsize=8,
+        #         #     ha='center',
+        #         #     va='center',
+        #         #     zorder=6,
+        #         #     bbox=dict(facecolor='black', alpha=0.5, boxstyle='round,pad=0.2')
+        #         # )
 
-                self.draw_vehicle(self.ax, ex, ey, relative_yaw, color='blue', alpha=0.9, zorder=3)
+        #         self.draw_vehicle(self.ax, ex, ey, relative_yaw, color='blue', alpha=0.9, zorder=3)
 
-                # Rotate headlight positions by the vehicle's yaw
-                for y_sign in [1, -1]:
-                    hx_rotated = headlight_x_local * np.cos(relative_yaw) - y_sign * headlight_y_local * np.sin(relative_yaw)
-                    hy_rotated = headlight_x_local * np.sin(relative_yaw) + y_sign * headlight_y_local * np.cos(relative_yaw)
-                    self.ax.add_patch(Circle((ex + hx_rotated, ey + hy_rotated), 0.3, color='yellow'))
+        #         # Rotate headlight positions by the vehicle's yaw
+        #         for y_sign in [1, -1]:
+        #             hx_rotated = headlight_x_local * np.cos(relative_yaw) - y_sign * headlight_y_local * np.sin(relative_yaw)
+        #             hy_rotated = headlight_x_local * np.sin(relative_yaw) + y_sign * headlight_y_local * np.cos(relative_yaw)
+        #             self.ax.add_patch(Circle((ex + hx_rotated, ey + hy_rotated), 0.3, color='yellow'))
 
-                # Add normalized direction arrow (same length for all vehicles)
-                if (vx != 0 or vy != 0):  # Only draw if vehicle is moving
-                    # Use relative yaw directly for arrow direction
-                    arrow_length = 3.0
-                    arrow_dx = arrow_length * np.cos(relative_yaw)
-                    arrow_dy = arrow_length * np.sin(relative_yaw)
+        #         # Add normalized direction arrow (same length for all vehicles)
+        #         if (vx != 0 or vy != 0):  # Only draw if vehicle is moving
+        #             # Use relative yaw directly for arrow direction
+        #             arrow_length = 3.0
+        #             arrow_dx = arrow_length * np.cos(relative_yaw)
+        #             arrow_dy = arrow_length * np.sin(relative_yaw)
                     
-                    # Draw arrow
-                    self.ax.arrow(ex, ey, 
-                                arrow_dx, 
-                                arrow_dy,
-                                color='green', width=0.2, zorder=4)
+        #             # Draw arrow
+        #             self.ax.arrow(ex, ey, 
+        #                         arrow_dx, 
+        #                         arrow_dy,
+        #                         color='green', width=0.2, zorder=4)
 
-        self.draw_vehicle(self.ax, 0, 0, 0, color='red', alpha=1.0, zorder=4)
+        # self.draw_vehicle(self.ax, 0, 0, self.ego_yaw, color='red', alpha=1.0, zorder=4)
 
-        for offset in [-1, 1]:
-            # # Headlight in ego vehicle local frame
-            # hx_local, hy_local = self.transform_point(0, 0, 4, offset * 1, self.ego_yaw)
-            # self.ax.add_patch(Circle((hx_local, hy_local), 0.3, color='yellow'))
-            # Headlight in ego vehicle local frame (front of the vehicle)
-            hx_local = 2.25  # Half of vehicle length (4.5/2) to place at front
-            hy_local = offset * 0.8  # Slightly inset from the sides
-            self.ax.add_patch(Circle((hx_local, hy_local), 0.3, color='yellow'))
+        # for offset in [-1, 1]:
+        #     # # Headlight in ego vehicle local frame
+        #     # hx_local, hy_local = self.transform_point(0, 0, 4, offset * 1, self.ego_yaw)
+        #     # self.ax.add_patch(Circle((hx_local, hy_local), 0.3, color='yellow'))
+        #     # Headlight in ego vehicle local frame (front of the vehicle)
+        #     hx_local = 2.25  # Half of vehicle length (4.5/2) to place at front
+        #     hy_local = offset * 0.8  # Slightly inset from the sides
+        #     self.ax.add_patch(Circle((hx_local, hy_local), 0.3, color='yellow'))
 
-        self.ax.arrow(0, 0, 3, 0, color='green', width=0.1, zorder=5)
-        # Ego taillights (black)
-        # self.draw_tail_light_bar(self.ax, self.ego_x, self.ego_y, self.ego_yaw)
-
+        # self.ax.arrow(0, 0, 3, self.ego_yaw, color='green', width=0.1, zorder=5)
+        
         # Ego info panel
         info_text = (
             f"Time: {self.time * self.dt:.1f}s\n"
