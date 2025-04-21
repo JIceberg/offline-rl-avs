@@ -5,7 +5,7 @@ from offline_gym import OfflineRL
 import numpy as np
 import matplotlib.pyplot as plt
 
-with open('offline_dataset.pkl', 'rb') as f:
+with open('expert_dataset.pkl', 'rb') as f:
     data = pickle.load(f)
 
 offline_data = {
@@ -58,7 +58,7 @@ ql_agent = CQLAgent(
     cql_weight=0.0,
     alpha_multiplier=0.0,
     q_lr=1e-4,
-    policy_lr=1e-5
+    policy_lr=1e-4
 )
 
 # Initialize tracking variables
