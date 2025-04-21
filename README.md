@@ -4,12 +4,20 @@ This is a downstream of the av2-api repository.
 
 ## Create the Environment
 
-
+We recommend creating a conda environment. If you do not have conda, you can install
+miniconda on your machine this way:
+```sh
+wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+bash Miniforge3.sh -bp "${HOME}/conda"
+```
+Then to create the environment, run
+```sh
+bash conda/install.sh && conda activate av2
+```
 
 ## Downloading and Creating the Dataset
 
-We recommend downloading the scenario dataset using [this tutorial](https://argoverse.github.io/user-guide/getting_started.html#downloading-the-data). This is a large dataset (~60 GB), and downloading it manually can take a long time. Once the scenarios is downloaded and uploaded to a `data_of_argo` directory,
-you can create your training datasets.
+We recommend downloading the scenario dataset using [this tutorial](https://argoverse.github.io/user-guide/getting_started.html#downloading-the-data). This is a large dataset (~60 GB), and downloading it manually can take a long time. When you download the datasets through s5cmd, make sure that the `$DATASET_NAME` is motion-forecasting and the `$TARGET_DIR` is data_of_argo. Once the scenarios is downloaded and uploaded to a data_of_argo directory, you can create your training datasets.
 
 ### Offline Training Dataset
 

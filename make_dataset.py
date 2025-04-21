@@ -7,7 +7,7 @@ from offline_gym import get_reward
 argoverse_scenario_dir = Path(
         'data_for_simulator/train/')
 all_scenario_files = sorted(argoverse_scenario_dir.rglob("*.pkl"))
-scenario_file_lists = (all_scenario_files[:1000])
+scenario_file_lists = (all_scenario_files[:50])
 scenarios = []
 for scenario_file_list in scenario_file_lists:
     scenario = pickle.load(open(scenario_file_list, 'rb'))
@@ -23,7 +23,7 @@ for scenario in scenarios:
     states_of_scenario = scenario['states']
     for i in range(len(states_of_scenario)):
         state = states_of_scenario[i]
-        action = [0, 0]
+        action = [0] # [0, 0]
         done = 0
         reach = 0
 
@@ -118,22 +118,22 @@ for scenario in scenarios:
             ego_heading = ego[2]
 
             action[0] = accel
-            action[1] = ego_heading
+            # action[1] = ego_heading
         else:
             action = actions[-1]
             done = 1
             reach = 1
 
-        reward = get_reward(observation, ego_v, action[0], action[1], collision, done, reach)
+        reward = get_reward(observation, ego_v, action[0], collision, done, reach)
 
-        rewards.append(reward)
+        rewards.append([reward])
         observations.append(observation)
         actions.append(action)
         terminals.append([done])
 
 for i in range(1, len(observations)):
     next_observations.append(observations[i])
-next_observations.append(observations[0])
+next_observations.append(observations[-1])
 
 observations = np.array(observations, dtype='float32')
 next_observations = np.array(next_observations, dtype='float32')
