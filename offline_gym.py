@@ -17,26 +17,6 @@ from PIL import Image
 import imageio
 from tqdm import tqdm
 import numpy as np
-# from collections import namedtuple
-# EgoState = namedtuple("EgoState", ["position", "heading", "velocity"])
-
-
-def get_reward(observation, ego_speed, ego_accel, collision, done, reach):
-    r_terminal = 10 if reach else 0
-    r_collision = -100 if collision else 0
-    r_speed = ego_speed / 20
-    # r_smooth = -0.1 * abs(ego_accel)
-
-    total_reward = r_terminal + r_collision + r_speed # + r_smooth
-    return float(total_reward) / 20.
-
-def normalize_angle(angle_rad):
-    return (angle_rad + np.pi) % (2 * np.pi) - np.pi
-
-def object_to_ego(x, y, yaw):
-    res_x = math.cos(yaw) * x - math.sin(yaw) * y
-    res_y = math.sin(yaw) * x + math.cos(yaw) * y
-    return res_x, res_y
 
 def record_gif(env, policy, gif_filename='simulation.gif', fps=10, duration=None):
     """
